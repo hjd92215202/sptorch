@@ -5,6 +5,7 @@ pub trait Op: std::fmt::Debug + Send + Sync {
     fn backward(&self, grad_output: &Tensor);
 }
 
+#[derive(Debug)]
 pub struct Node {
     pub op: Box<dyn Op>,
     pub inputs: Vec<Tensor>,
@@ -13,10 +14,12 @@ pub struct Node {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Device { CPU }
 
+#[derive(Debug)]
 pub struct Storage {
     pub data: Vec<f32>,
 }
 
+#[derive(Debug)]
 pub struct TensorInner {
     pub storage: Arc<RwLock<Storage>>,
     pub shape: Vec<usize>,
@@ -63,6 +66,9 @@ impl Tensor {
     // --- 新增：梯度累加逻辑 ---
     pub fn accum_grad(&self, grad_tensor: &Tensor) {
         let mut inner = self.0.write().unwrap();
+
+        println!("accum_grad is {:?}", &inner);
+        
         if !inner.requires_grad { return; }
 
         if let Some(existing_grad) = &inner.grad {
@@ -73,7 +79,9 @@ impl Tensor {
                 g_storage.data[i] += incoming_data[i];
             }
         } else {
+            // 如果是第一次运行，它就把刚才那个 1.0 的 Tensor 存进 z.grad 里
             inner.grad = Some(grad_tensor.clone());
+            println!("1.0 {:?} is {:?}", &inner.storage, &inner.grad);
         }
     }
 
@@ -82,13 +90,24 @@ impl Tensor {
         let shape = self.shape();
         let size = shape.iter().product();
         // 种子梯度：dL/dloss = 1.0
+        // 在内存里造出一个和 z 形状一模一样的 Tensor，里面填满 1.0
         let grad_output = Tensor::new(vec![1.0; size], shape);
+
+        println!("种子梯度 is {:?}", &grad_output);
+
+        // 然后把它交给 backward_step 开始往回传
         self.backward_step(&grad_output);
+        
     }
 
     pub fn backward_step(&self, grad_output: &Tensor) {
         self.accum_grad(grad_output);
+
         let inner = self.0.read().unwrap();
+        println!("------ accum_grad backward_step ------");
+        println!("accum_grad backward_step {:?}", &inner);
+        println!("------ accum_grad backward_step ------");
+
         if let Some(creator) = &inner.creator {
             creator.op.backward(grad_output);
         }
@@ -108,6 +127,7 @@ impl fmt::Debug for Tensor {
         let inner = self.0.read().unwrap();
         // 只打印核心元数据，不递归打印 creator，避免死循环
         f.debug_struct("Tensor")
+            .field("data", &inner.storage)
             .field("shape", &inner.shape)
             .field("requires_grad", &inner.requires_grad)
             .field("device", &inner.device)
