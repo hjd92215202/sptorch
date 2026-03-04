@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/core-tensor",
+    "crates/core-autograd",
+]
+resolver = "2"
