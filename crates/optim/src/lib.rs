@@ -181,6 +181,57 @@ impl Optimizer for AdamW {
     }
 }
 
+// ============ Learning Rate Schedulers ============
+
+pub trait LrScheduler {
+    fn get_lr(&self, step: u64) -> f32;
+}
+
+/// Warmup + Cosine Decay
+pub struct CosineScheduler {
+    pub base_lr: f32,
+    pub warmup_steps: u64,
+    pub total_steps: u64,
+    pub min_lr: f32,
+}
+
+impl CosineScheduler {
+    pub fn new(base_lr: f32, warmup_steps: u64, total_steps: u64) -> Self {
+        CosineScheduler {
+            base_lr,
+            warmup_steps,
+            total_steps,
+            min_lr: base_lr * 0.1,
+        }
+    }
+}
+
+impl LrScheduler for CosineScheduler {
+    fn get_lr(&self, step: u64) -> f32 {
+        if step < self.warmup_steps {
+            self.base_lr * (step as f32 / self.warmup_steps.max(1) as f32)
+        } else if step >= self.total_steps {
+            self.min_lr
+        } else {
+            let progress = (step - self.warmup_steps) as f32
+                / (self.total_steps - self.warmup_steps).max(1) as f32;
+            self.min_lr + 0.5 * (self.base_lr - self.min_lr) * (1.0 + (std::f32::consts::PI * progress).cos())
+        }
+    }
+}
+
+impl AdamW {
+    pub fn set_lr(&mut self, lr: f32) {
+        self.lr = lr;
+    }
+}
+
+impl SGD {
+    pub fn set_lr(&mut self, lr: f32) {
+        self.lr = lr;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +322,24 @@ mod tests {
         opt.step();
         // Should skip update, param unchanged
         assert_eq!(p.data(), vec![1.0]);
+    }
+
+    #[test]
+    fn test_cosine_scheduler_warmup() {
+        let sched = CosineScheduler::new(0.001, 100, 1000);
+        assert!((sched.get_lr(0) - 0.0).abs() < 1e-8);
+        assert!((sched.get_lr(50) - 0.0005).abs() < 1e-6);
+        assert!((sched.get_lr(100) - 0.001).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_cosine_scheduler_decay() {
+        let sched = CosineScheduler::new(0.001, 0, 1000);
+        let lr_start = sched.get_lr(0);
+        let lr_mid = sched.get_lr(500);
+        let lr_end = sched.get_lr(1000);
+        assert!((lr_start - 0.001).abs() < 1e-6);
+        assert!(lr_mid < lr_start && lr_mid > lr_end);
+        assert!((lr_end - 0.0001).abs() < 1e-6); // min_lr = 0.1 * base
     }
 }

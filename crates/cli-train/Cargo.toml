@@ -12,4 +12,6 @@ core-tensor = { path = "../core-tensor" }
 core-ops = { path = "../core-ops" }
 nn = { path = "../nn" }
 optim = { path = "../optim" }
+data = { path = "../data" }
+serialize = { path = "../serialize" }
 rand = "0.8"

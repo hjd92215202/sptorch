@@ -1,0 +1,33 @@
+the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog.
+hello world this is a tiny language model training example. we will train on this small text corpus.
+the quick brown fox jumps over the lazy dog again and again. this is repeated text for training.
+machine learning is fun and exciting. deep learning with rust is powerful and fast.
+hello world hello world hello world. this is a test this is a test this is a test.
+the cat sat on the mat. the dog ran in the park. the bird flew over the tree.
+once upon a time there was a small language model that learned to generate text.
+it was trained on a small corpus of english text and it learned the patterns of language.
+the model learned that words follow other words in predictable patterns.
+for example the word the is often followed by a noun like cat dog or bird.
+and the word is is often followed by an adjective like fun exciting or powerful.
+the quick brown fox jumps over the lazy dog. this sentence contains every letter.
+hello world is the first program that most programmers write when learning a new language.
+machine learning models learn patterns from data and use those patterns to make predictions.
+deep learning is a subset of machine learning that uses neural networks with many layers.
+the transformer architecture revolutionized natural language processing.
+attention is all you need was the paper that introduced the transformer.
+the model uses self attention to process sequences of tokens in parallel.
+each layer of the transformer has a multi head attention mechanism and a feed forward network.
+the attention mechanism allows the model to focus on different parts of the input.
+this is a small training corpus but it should be enough to demonstrate the framework.
+the goal is to show that the model can learn to generate coherent text.
+even with a small model and a small dataset the model should learn basic patterns.
+the quick brown fox jumps over the lazy dog. the lazy dog sleeps all day.
+hello world this is another line of training data for our small language model.
+the sun rises in the east and sets in the west. the moon shines at night.
+birds fly in the sky. fish swim in the sea. cats sleep on the couch.
+the weather is nice today. it is sunny and warm. the flowers are blooming.
+programming in rust is safe and fast. the compiler catches many bugs at compile time.
+the borrow checker ensures memory safety without garbage collection.
+rust is a systems programming language that runs blazingly fast.
+the quick brown fox jumps over the lazy dog one more time for good measure.
+this is the end of the training data. the model should have enough to learn from.

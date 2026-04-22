@@ -587,6 +587,72 @@ impl GPT {
     }
 }
 
+// ============ Text Generation ============
+
+pub fn generate_greedy(model: &GPT, prompt: &[usize], max_new_tokens: usize, vocab_size: usize) -> Vec<usize> {
+    let mut ids = prompt.to_vec();
+    for _ in 0..max_new_tokens {
+        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let logits = model.forward_ids(ctx);
+        let logits_data = logits.contiguous_data();
+        let last = &logits_data[logits_data.len() - vocab_size..];
+        let next = last.iter().enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .map(|(i, _)| i).unwrap();
+        ids.push(next);
+    }
+    ids
+}
+
+pub fn generate_with_sampling(
+    model: &GPT,
+    prompt: &[usize],
+    max_new_tokens: usize,
+    vocab_size: usize,
+    temperature: f32,
+    top_k: usize,
+) -> Vec<usize> {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let mut ids = prompt.to_vec();
+
+    for _ in 0..max_new_tokens {
+        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let logits = model.forward_ids(ctx);
+        let logits_data = logits.contiguous_data();
+        let last = &logits_data[logits_data.len() - vocab_size..];
+
+        // Apply temperature
+        let scaled: Vec<f32> = last.iter().map(|x| x / temperature.max(1e-8)).collect();
+
+        // Top-k filtering
+        let mut indexed: Vec<(usize, f32)> = scaled.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        let k = top_k.min(vocab_size);
+        let top = &indexed[..k];
+
+        // Softmax over top-k
+        let max_val = top[0].1;
+        let exps: Vec<f32> = top.iter().map(|(_, v)| (v - max_val).exp()).collect();
+        let sum: f32 = exps.iter().sum();
+        let probs: Vec<f32> = exps.iter().map(|e| e / sum).collect();
+
+        // Sample
+        let r: f32 = rng.gen();
+        let mut cumsum = 0.0;
+        let mut next = top[0].0;
+        for (i, &p) in probs.iter().enumerate() {
+            cumsum += p;
+            if r < cumsum {
+                next = top[i].0;
+                break;
+            }
+        }
+        ids.push(next);
+    }
+    ids
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
