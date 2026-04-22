@@ -2,5 +2,6 @@
 members = [
     "crates/core-tensor",
     "crates/core-autograd",
+    "crates/hal",
 ]
 resolver = "2"

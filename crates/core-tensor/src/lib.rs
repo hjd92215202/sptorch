@@ -1,8 +1,30 @@
+use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::fmt;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum TensorError {
+    #[error("shape mismatch: expected {expected:?}, got {got:?}")]
+    ShapeMismatch { expected: Vec<usize>, got: Vec<usize> },
+
+    #[error("device mismatch: expected {expected:?}, got {got:?}")]
+    DeviceMismatch { expected: Device, got: Device },
+
+    #[error("dtype mismatch: expected {expected:?}, got {got:?}")]
+    DTypeMismatch { expected: DType, got: DType },
+
+    #[error("invalid shape: {0}")]
+    InvalidShape(String),
+
+    #[error("lock poisoned")]
+    LockPoisoned,
+}
+
+pub type Result<T> = std::result::Result<T, TensorError>;
 
 pub trait Op: std::fmt::Debug + Send + Sync {
-    fn backward(&self, grad_output: &Tensor);
+    fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>>;
 }
 
 #[derive(Debug)]
@@ -14,6 +36,13 @@ pub struct Node {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Device { CPU }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DType { F32, F16, BF16 }
+
+impl Default for DType {
+    fn default() -> Self { DType::F32 }
+}
+
 #[derive(Debug)]
 pub struct Storage {
     pub data: Vec<f32>,
@@ -24,10 +53,11 @@ pub struct TensorInner {
     pub storage: Arc<RwLock<Storage>>,
     pub shape: Vec<usize>,
     pub strides: Vec<usize>,
+    pub dtype: DType,
     pub device: Device,
     pub requires_grad: bool,
     pub grad: Option<Tensor>,
-    pub creator: Option<Arc<Node>>, 
+    pub creator: Option<Arc<Node>>,
 }
 
 #[derive(Clone)]
@@ -40,6 +70,7 @@ impl Tensor {
             storage: Arc::new(RwLock::new(Storage { data })),
             shape,
             strides,
+            dtype: DType::F32,
             device: Device::CPU,
             requires_grad: false,
             grad: None,
@@ -54,7 +85,6 @@ impl Tensor {
         t
     }
 
-    // --- 新增：获取数据拷贝 (用于前向计算) ---
     pub fn data(&self) -> Vec<f32> {
         self.0.read().unwrap().storage.read().unwrap().data.clone()
     }
@@ -63,53 +93,63 @@ impl Tensor {
         self.0.read().unwrap().shape.clone()
     }
 
-    // --- 新增：梯度累加逻辑 ---
-    pub fn accum_grad(&self, grad_tensor: &Tensor) {
-        let mut inner = self.0.write().unwrap();
+    pub fn requires_grad(&self) -> bool {
+        self.0.read().unwrap().requires_grad
+    }
 
-        println!("accum_grad is {:?}", &inner);
-        
+    pub fn accum_grad(&self, grad_tensor: &Tensor) {
+        let incoming_data = grad_tensor.data();
+
+        let mut inner = self.0.write().unwrap();
         if !inner.requires_grad { return; }
 
         if let Some(existing_grad) = &inner.grad {
             let g_inner = existing_grad.0.write().unwrap();
             let mut g_storage = g_inner.storage.write().unwrap();
-            let incoming_data = grad_tensor.data();
             for i in 0..g_storage.data.len() {
                 g_storage.data[i] += incoming_data[i];
             }
         } else {
-            // 如果是第一次运行，它就把刚才那个 1.0 的 Tensor 存进 z.grad 里
-            inner.grad = Some(grad_tensor.clone());
-            println!("1.0 {:?} is {:?}", &inner.storage, &inner.grad);
+            inner.grad = Some(Tensor::new(incoming_data, inner.shape.clone()));
         }
     }
 
-    // --- 新增：反向传播递归入口 ---
-    pub fn backward(&self) {
-        let shape = self.shape();
-        let size = shape.iter().product();
-        // 种子梯度：dL/dloss = 1.0
-        // 在内存里造出一个和 z 形状一模一样的 Tensor，里面填满 1.0
-        let grad_output = Tensor::new(vec![1.0; size], shape);
-
-        println!("种子梯度 is {:?}", &grad_output);
-
-        // 然后把它交给 backward_step 开始往回传
-        self.backward_step(&grad_output);
-        
+    pub fn grad(&self) -> Option<Vec<f32>> {
+        let inner = self.0.read().unwrap();
+        inner.grad.as_ref().map(|g| g.data())
     }
 
-    pub fn backward_step(&self, grad_output: &Tensor) {
-        self.accum_grad(grad_output);
+    /// 拓扑排序迭代式反向传播
+    pub fn backward(&self) {
+        let shape = self.shape();
+        let size: usize = shape.iter().product();
+        let seed = Tensor::new(vec![1.0; size], shape);
 
-        let inner = self.0.read().unwrap();
-        println!("------ accum_grad backward_step ------");
-        println!("accum_grad backward_step {:?}", &inner);
-        println!("------ accum_grad backward_step ------");
+        self.accum_grad(&seed);
 
-        if let Some(creator) = &inner.creator {
-            creator.op.backward(grad_output);
+        let mut queue: VecDeque<(Tensor, Tensor)> = VecDeque::new();
+        queue.push_back((self.clone(), seed));
+
+        while let Some((tensor, grad_output)) = queue.pop_front() {
+            let creator = {
+                let inner = tensor.0.read().unwrap();
+                inner.creator.clone()
+            };
+
+            if let Some(node) = creator {
+                let input_grads = node.op.backward(&grad_output);
+
+                for (input, maybe_grad) in node.inputs.iter().zip(input_grads.into_iter()) {
+                    if let Some(grad) = maybe_grad {
+                        input.accum_grad(&grad);
+
+                        let has_creator = input.0.read().unwrap().creator.is_some();
+                        if has_creator {
+                            queue.push_back((input.clone(), grad));
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -125,7 +165,6 @@ fn compute_strides(shape: &[usize]) -> Vec<usize> {
 impl fmt::Debug for Tensor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.0.read().unwrap();
-        // 只打印核心元数据，不递归打印 creator，避免死循环
         f.debug_struct("Tensor")
             .field("data", &inner.storage)
             .field("shape", &inner.shape)

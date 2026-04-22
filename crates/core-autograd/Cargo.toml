@@ -1,7 +1,7 @@
 [package]
 name = "core-autograd"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 # 告诉 Cargo，core-tensor 在隔壁文件夹
