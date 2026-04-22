@@ -1,0 +1,7 @@
+[package]
+name = "core-ops"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }

@@ -53,6 +53,7 @@ pub struct TensorInner {
     pub storage: Arc<RwLock<Storage>>,
     pub shape: Vec<usize>,
     pub strides: Vec<usize>,
+    pub offset: usize,
     pub dtype: DType,
     pub device: Device,
     pub requires_grad: bool,
@@ -70,6 +71,7 @@ impl Tensor {
             storage: Arc::new(RwLock::new(Storage { data })),
             shape,
             strides,
+            offset: 0,
             dtype: DType::F32,
             device: Device::CPU,
             requires_grad: false,
@@ -91,6 +93,48 @@ impl Tensor {
 
     pub fn shape(&self) -> Vec<usize> {
         self.0.read().unwrap().shape.clone()
+    }
+
+    pub fn strides(&self) -> Vec<usize> {
+        self.0.read().unwrap().strides.clone()
+    }
+
+    pub fn numel(&self) -> usize {
+        self.shape().iter().product()
+    }
+
+    pub fn is_contiguous(&self) -> bool {
+        let inner = self.0.read().unwrap();
+        inner.strides == compute_strides(&inner.shape)
+    }
+
+    /// Read data respecting strides/offset (returns contiguous copy)
+    pub fn contiguous_data(&self) -> Vec<f32> {
+        let inner = self.0.read().unwrap();
+        let storage = inner.storage.read().unwrap();
+        let expected_strides = compute_strides(&inner.shape);
+        if inner.offset == 0 && inner.strides == expected_strides {
+            return storage.data.clone();
+        }
+        // Gather elements following strides
+        let numel: usize = inner.shape.iter().product();
+        let ndim = inner.shape.len();
+        let mut result = Vec::with_capacity(numel);
+        let mut indices = vec![0usize; ndim];
+        for _ in 0..numel {
+            let physical: usize = inner.offset
+                + indices.iter().zip(inner.strides.iter()).map(|(i, s)| i * s).sum::<usize>();
+            result.push(storage.data[physical]);
+            // Increment indices (row-major)
+            for d in (0..ndim).rev() {
+                indices[d] += 1;
+                if indices[d] < inner.shape[d] {
+                    break;
+                }
+                indices[d] = 0;
+            }
+        }
+        result
     }
 
     pub fn requires_grad(&self) -> bool {

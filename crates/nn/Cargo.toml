@@ -1,0 +1,9 @@
+[package]
+name = "nn"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+core-ops = { path = "../core-ops" }
+rand = "0.8"

@@ -1,0 +1,15 @@
+[package]
+name = "cli-train"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sptorch-train"
+path = "src/main.rs"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+core-ops = { path = "../core-ops" }
+nn = { path = "../nn" }
+optim = { path = "../optim" }
+rand = "0.8"

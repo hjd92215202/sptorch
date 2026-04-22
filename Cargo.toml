@@ -2,6 +2,11 @@
 members = [
     "crates/core-tensor",
     "crates/core-autograd",
+    "crates/core-ops",
     "crates/hal",
+    "crates/nn",
+    "crates/optim",
+    "crates/data",
+    "crates/cli-train",
 ]
 resolver = "2"
