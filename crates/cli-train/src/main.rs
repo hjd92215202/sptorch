@@ -21,14 +21,14 @@ fn main() {
 
     // 超参数
     let seq_len = 64;
-    let d_model = 64;
+    let d_model = 96;
     let n_head = 4;
-    let n_layer = 2;
-    let d_ff = 256;
+    let n_layer = 3;
+    let d_ff = 384;
     let lr = 3e-3;
-    let max_steps: u64 = 500;
+    let max_steps: u64 = 1000;
     let warmup_steps: u64 = 50;
-    let log_interval = 50;
+    let log_interval = 100;
     let checkpoint_path = "minigpt_checkpoint.sptc";
 
     // 模型
