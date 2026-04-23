@@ -1,6 +1,32 @@
 use core_tensor::{Tensor, Op, Node};
 use std::sync::Arc;
 
+// ============ Tiled Matmul (cache-friendly) ============
+
+const TILE: usize = 32;
+
+fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
+    let mut c = vec![0.0f32; m * n];
+    for ii in (0..m).step_by(TILE) {
+        for pp in (0..k).step_by(TILE) {
+            for jj in (0..n).step_by(TILE) {
+                let i_end = (ii + TILE).min(m);
+                let p_end = (pp + TILE).min(k);
+                let j_end = (jj + TILE).min(n);
+                for i in ii..i_end {
+                    for p in pp..p_end {
+                        let a_val = a[i * k + p];
+                        for j in jj..j_end {
+                            c[i * n + j] += a_val * b[p * n + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    c
+}
+
 // ============ Add ============
 
 #[derive(Debug)]
@@ -202,28 +228,23 @@ impl Op for MatmulOp {
         let b = self.saved_b.data();
 
         // dA = dY @ B^T  [m,n] @ [n,k] = [m,k]
-        let mut da = vec![0.0f32; m * k];
-        for i in 0..m {
-            for j in 0..k {
-                let mut s = 0.0f32;
-                for p in 0..n {
-                    s += g[i * n + p] * b[j * n + p]; // B^T[p][j] = B[j][p]
-                }
-                da[i * k + j] = s;
-            }
-        }
-
-        // dB = A^T @ dY  [k,m] @ [m,n] = [k,n]
-        let mut db = vec![0.0f32; k * n];
+        // Transpose B first, then use tiled_matmul
+        let mut bt = vec![0.0f32; n * k];
         for i in 0..k {
             for j in 0..n {
-                let mut s = 0.0f32;
-                for p in 0..m {
-                    s += a[p * k + i] * g[p * n + j]; // A^T[i][p] = A[p][i]
-                }
-                db[i * n + j] = s;
+                bt[j * k + i] = b[i * n + j];
             }
         }
+        let da = tiled_matmul(&g, &bt, m, n, k);
+
+        // dB = A^T @ dY  [k,m] @ [m,n] = [k,n]
+        let mut at = vec![0.0f32; k * m];
+        for i in 0..m {
+            for j in 0..k {
+                at[j * m + i] = a[i * k + j];
+            }
+        }
+        let db = tiled_matmul(&at, &g, k, m, n);
 
         vec![
             Some(Tensor::new(da, vec![m, k])),
@@ -241,16 +262,7 @@ pub fn matmul(a: &Tensor, b: &Tensor) -> Tensor {
     let a_data = a.data();
     let b_data = b.data();
 
-    let mut res_data = vec![0.0f32; m * n];
-    for i in 0..m {
-        for j in 0..n {
-            let mut s = 0.0f32;
-            for p in 0..k {
-                s += a_data[i * k + p] * b_data[p * n + j];
-            }
-            res_data[i * n + j] = s;
-        }
-    }
+    let res_data = tiled_matmul(&a_data, &b_data, m, k, n);
 
     let res = Tensor::new(res_data, vec![m, n]);
 
@@ -967,18 +979,10 @@ pub fn batch_matmul(a: &Tensor, b: &Tensor) -> Tensor {
 
     let mut out = vec![0.0f32; batch * m * n];
     for bi in 0..batch {
-        let a_off = bi * m * k;
-        let b_off = bi * k * n;
-        let o_off = bi * m * n;
-        for i in 0..m {
-            for j in 0..n {
-                let mut s = 0.0f32;
-                for p in 0..k {
-                    s += a_data[a_off + i * k + p] * b_data[b_off + p * n + j];
-                }
-                out[o_off + i * n + j] = s;
-            }
-        }
+        let a_slice = &a_data[bi * m * k..(bi + 1) * m * k];
+        let b_slice = &b_data[bi * k * n..(bi + 1) * k * n];
+        let c_slice = tiled_matmul(a_slice, b_slice, m, k, n);
+        out[bi * m * n..(bi + 1) * m * n].copy_from_slice(&c_slice);
     }
 
     let res = Tensor::new(out, vec![batch, m, n]);
