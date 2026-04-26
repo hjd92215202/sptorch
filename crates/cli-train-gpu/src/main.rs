@@ -229,11 +229,11 @@ fn main() {
 
     // Hyperparameters
     let seq_len = 32;
-    let d_model = 64;
-    let d_ff = 256;
-    let lr = 0.05f32;
-    let max_steps: u64 = 500;
-    let log_interval: u64 = 50;
+    let d_model = 96;
+    let d_ff = 384;
+    let lr = 0.02f32;
+    let max_steps: u64 = 5000;
+    let log_interval: u64 = 500;
 
     let mut model = GpuSimpleGPT::new(&backend, vocab_size, d_model, d_ff, seq_len);
     let total_params = vocab_size * d_model + seq_len * d_model
