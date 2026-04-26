@@ -10,5 +10,6 @@ members = [
     "crates/serialize",
     "crates/runtime-cuda",
     "crates/cli-train",
+    "crates/cli-train-gpu",
 ]
 resolver = "2"

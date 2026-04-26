@@ -226,6 +226,182 @@ impl CudaBackend {
 
         Ok(out)
     }
+
+    // ============ 复合操作 (host-side orchestration + GPU kernels) ============
+
+    /// Transpose 2D: [m,n] -> [n,m]
+    pub fn gpu_transpose(&self, a: &GpuTensor) -> Result<GpuTensor, CudaError> {
+        assert_eq!(a.shape.len(), 2);
+        let (m, n) = (a.shape[0], a.shape[1]);
+        let host = a.to_host(self)?;
+        let mut out = vec![0.0f32; m * n];
+        for i in 0..m {
+            for j in 0..n {
+                out[j * m + i] = host[i * n + j];
+            }
+        }
+        GpuTensor::from_host(self, &out, vec![n, m])
+    }
+
+    /// Broadcast add: a:[rows, cols] + b:[cols] -> [rows, cols]
+    pub fn gpu_broadcast_add(&self, a: &GpuTensor, b: &GpuTensor) -> Result<GpuTensor, CudaError> {
+        let a_host = a.to_host(self)?;
+        let b_host = b.to_host(self)?;
+        let b_numel = b_host.len();
+        let out: Vec<f32> = a_host.iter().enumerate()
+            .map(|(i, &v)| v + b_host[i % b_numel])
+            .collect();
+        GpuTensor::from_host(self, &out, a.shape.clone())
+    }
+
+    /// Softmax along last axis: [rows, cols] or [cols]
+    pub fn gpu_softmax(&self, a: &GpuTensor) -> Result<GpuTensor, CudaError> {
+        let data = a.to_host(self)?;
+        let shape = &a.shape;
+        let out = if shape.len() == 1 {
+            let max_val = data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let exps: Vec<f32> = data.iter().map(|x| (x - max_val).exp()).collect();
+            let sum: f32 = exps.iter().sum();
+            exps.iter().map(|e| e / sum).collect()
+        } else {
+            let (rows, cols) = (shape[0], shape[1]);
+            let mut out = vec![0.0f32; rows * cols];
+            for r in 0..rows {
+                let off = r * cols;
+                let max_val = (0..cols).map(|c| data[off + c]).fold(f32::NEG_INFINITY, f32::max);
+                let sum: f32 = (0..cols).map(|c| (data[off + c] - max_val).exp()).sum();
+                for c in 0..cols {
+                    out[off + c] = (data[off + c] - max_val).exp() / sum;
+                }
+            }
+            out
+        };
+        GpuTensor::from_host(self, &out, a.shape.clone())
+    }
+
+    /// Cross-entropy loss: logits:[seq, vocab], targets:&[usize] -> scalar loss + softmax
+    pub fn gpu_cross_entropy(&self, logits: &GpuTensor, targets: &[usize]) -> Result<(f32, GpuTensor), CudaError> {
+        let data = logits.to_host(self)?;
+        let shape = &logits.shape;
+        let (seq_len, vocab) = (shape[0], shape[1]);
+        assert_eq!(targets.len(), seq_len);
+
+        let mut total_loss = 0.0f32;
+        let mut sm = vec![0.0f32; seq_len * vocab];
+        for r in 0..seq_len {
+            let off = r * vocab;
+            let max_val = (0..vocab).map(|c| data[off + c]).fold(f32::NEG_INFINITY, f32::max);
+            let sum: f32 = (0..vocab).map(|c| (data[off + c] - max_val).exp()).sum();
+            let log_sum = sum.ln();
+            total_loss += -(data[off + targets[r]] - max_val - log_sum);
+            for c in 0..vocab {
+                sm[off + c] = (data[off + c] - max_val).exp() / sum;
+            }
+        }
+        let loss = total_loss / seq_len as f32;
+        let sm_gpu = GpuTensor::from_host(self, &sm, vec![seq_len, vocab])?;
+        Ok((loss, sm_gpu))
+    }
+
+    /// Cross-entropy backward: grad = (softmax - one_hot) / batch_size
+    pub fn gpu_cross_entropy_backward(&self, sm: &GpuTensor, targets: &[usize]) -> Result<GpuTensor, CudaError> {
+        let mut grad = sm.to_host(self)?;
+        let (seq_len, vocab) = (sm.shape[0], sm.shape[1]);
+        for (r, &t) in targets.iter().enumerate() {
+            grad[r * vocab + t] -= 1.0;
+        }
+        let scale = 1.0 / seq_len as f32;
+        for v in grad.iter_mut() { *v *= scale; }
+        GpuTensor::from_host(self, &grad, sm.shape.clone())
+    }
+
+    /// Embedding lookup: weight:[num_emb, dim], indices -> [len, dim]
+    pub fn gpu_embedding(&self, weight: &GpuTensor, indices: &[usize]) -> Result<GpuTensor, CudaError> {
+        let w = weight.to_host(self)?;
+        let dim = weight.shape[1];
+        let seq_len = indices.len();
+        let mut out = vec![0.0f32; seq_len * dim];
+        for (i, &idx) in indices.iter().enumerate() {
+            out[i * dim..(i + 1) * dim].copy_from_slice(&w[idx * dim..(idx + 1) * dim]);
+        }
+        GpuTensor::from_host(self, &out, vec![seq_len, dim])
+    }
+
+    /// Embedding backward: scatter grad back to weight shape
+    pub fn gpu_embedding_backward(&self, grad: &GpuTensor, indices: &[usize], num_emb: usize, dim: usize) -> Result<GpuTensor, CudaError> {
+        let g = grad.to_host(self)?;
+        let mut dw = vec![0.0f32; num_emb * dim];
+        for (i, &idx) in indices.iter().enumerate() {
+            for d in 0..dim {
+                dw[idx * dim + d] += g[i * dim + d];
+            }
+        }
+        GpuTensor::from_host(self, &dw, vec![num_emb, dim])
+    }
+
+    /// Masked fill: where mask[i] is true, set fill_value
+    pub fn gpu_masked_fill(&self, a: &GpuTensor, mask: &[bool], fill_value: f32) -> Result<GpuTensor, CudaError> {
+        let mut data = a.to_host(self)?;
+        for (i, &m) in mask.iter().enumerate() {
+            if m { data[i] = fill_value; }
+        }
+        GpuTensor::from_host(self, &data, a.shape.clone())
+    }
+
+    /// Reshape (just changes shape metadata, data stays on GPU)
+    pub fn gpu_reshape(&self, a: &GpuTensor, new_shape: Vec<usize>) -> Result<GpuTensor, CudaError> {
+        let new_numel: usize = new_shape.iter().product();
+        assert_eq!(a.numel, new_numel);
+        // Clone the GPU data slice by copying through host (safe but not optimal)
+        let host = a.to_host(self)?;
+        GpuTensor::from_host(self, &host, new_shape)
+    }
+
+    /// Sum all elements -> scalar
+    pub fn gpu_sum(&self, a: &GpuTensor) -> Result<f32, CudaError> {
+        let host = a.to_host(self)?;
+        Ok(host.iter().sum())
+    }
+
+    /// Layer norm: input:[batch, dim], gamma:[dim], beta:[dim]
+    pub fn gpu_layer_norm(&self, input: &GpuTensor, gamma: &GpuTensor, beta: &GpuTensor, eps: f32) -> Result<GpuTensor, CudaError> {
+        let data = input.to_host(self)?;
+        let g = gamma.to_host(self)?;
+        let b = beta.to_host(self)?;
+        let dim = g.len();
+        let leading = data.len() / dim;
+        let mut out = vec![0.0f32; data.len()];
+        for batch in 0..leading {
+            let off = batch * dim;
+            let mean: f32 = (0..dim).map(|i| data[off + i]).sum::<f32>() / dim as f32;
+            let var: f32 = (0..dim).map(|i| (data[off + i] - mean).powi(2)).sum::<f32>() / dim as f32;
+            let inv_std = 1.0 / (var + eps).sqrt();
+            for i in 0..dim {
+                out[off + i] = g[i] * (data[off + i] - mean) * inv_std + b[i];
+            }
+        }
+        GpuTensor::from_host(self, &out, input.shape.clone())
+    }
+
+    /// Batch matmul: [B,M,K] @ [B,K,N] -> [B,M,N] via cuBLAS batched
+    pub fn gpu_batch_matmul(&self, a: &GpuTensor, b: &GpuTensor) -> Result<GpuTensor, CudaError> {
+        let (batch, m, k) = (a.shape[0], a.shape[1], a.shape[2]);
+        let n = b.shape[2];
+        // Use per-batch sgemm calls
+        let a_host = a.to_host(self)?;
+        let b_host = b.to_host(self)?;
+        let mut out_host = vec![0.0f32; batch * m * n];
+        for bi in 0..batch {
+            let a_slice = &a_host[bi * m * k..(bi + 1) * m * k];
+            let b_slice = &b_host[bi * k * n..(bi + 1) * k * n];
+            let ga = GpuTensor::from_host(self, a_slice, vec![m, k])?;
+            let gb = GpuTensor::from_host(self, b_slice, vec![k, n])?;
+            let gc = self.gpu_matmul(&ga, &gb)?;
+            let c_host = gc.to_host(self)?;
+            out_host[bi * m * n..(bi + 1) * m * n].copy_from_slice(&c_host);
+        }
+        GpuTensor::from_host(self, &out_host, vec![batch, m, n])
+    }
 }
 
 #[cfg(test)]
