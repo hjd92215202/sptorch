@@ -59,6 +59,22 @@ fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> 
     c
 }
 
+// Helper: matmul dispatch (GPU if available and matrix large enough, else CPU tiled)
+// GPU offload only worthwhile when matrix is large enough to amortize transfer cost
+const GPU_MATMUL_THRESHOLD: usize = 128 * 128;
+
+fn dispatch_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
+    #[cfg(feature = "cuda")]
+    {
+        if m * k + k * n >= GPU_MATMUL_THRESHOLD {
+            if let Some(result) = gpu_accel::gpu_matmul(a, b, m, k, n) {
+                return result;
+            }
+        }
+    }
+    tiled_matmul(a, b, m, k, n)
+}
+
 // ============ Add ============
 
 #[derive(Debug)]
@@ -267,7 +283,7 @@ impl Op for MatmulOp {
                 bt[j * k + i] = b[i * n + j];
             }
         }
-        let da = tiled_matmul(&g, &bt, m, n, k);
+        let da = dispatch_matmul(&g, &bt, m, n, k);
 
         // dB = A^T @ dY  [k,m] @ [m,n] = [k,n]
         let mut at = vec![0.0f32; k * m];
@@ -276,7 +292,7 @@ impl Op for MatmulOp {
                 at[j * m + i] = a[i * k + j];
             }
         }
-        let db = tiled_matmul(&at, &g, k, m, n);
+        let db = dispatch_matmul(&at, &g, k, m, n);
 
         vec![
             Some(Tensor::new(da, vec![m, k])),
@@ -295,11 +311,10 @@ pub fn matmul(a: &Tensor, b: &Tensor) -> Tensor {
     let b_data = b.data();
 
     #[cfg(feature = "cuda")]
-    let res_data = gpu_accel::gpu_matmul(&a_data, &b_data, m, k, n)
-        .unwrap_or_else(|| tiled_matmul(&a_data, &b_data, m, k, n));
+    let res_data = dispatch_matmul(&a_data, &b_data, m, k, n);
 
     #[cfg(not(feature = "cuda"))]
-    let res_data = tiled_matmul(&a_data, &b_data, m, k, n);
+    let res_data = dispatch_matmul(&a_data, &b_data, m, k, n);
 
     let res = Tensor::new(res_data, vec![m, n]);
 
@@ -1018,7 +1033,7 @@ pub fn batch_matmul(a: &Tensor, b: &Tensor) -> Tensor {
     for bi in 0..batch {
         let a_slice = &a_data[bi * m * k..(bi + 1) * m * k];
         let b_slice = &b_data[bi * k * n..(bi + 1) * k * n];
-        let c_slice = tiled_matmul(a_slice, b_slice, m, k, n);
+        let c_slice = dispatch_matmul(a_slice, b_slice, m, k, n);
         out[bi * m * n..(bi + 1) * m * n].copy_from_slice(&c_slice);
     }
 
