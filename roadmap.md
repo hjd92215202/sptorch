@@ -156,6 +156,26 @@ crates/
 - 复合操作（softmax/LayerNorm/embedding）目前走 host 端计算再传回 GPU，是性能瓶颈
 - cuBLAS matmul 是真正的加速点，逐元素 kernel 对小 tensor 加速不明显
 
+### 实验 5：GPU Attention 模型训练
+
+| 配置 | 值 |
+|------|-----|
+| 模型 | Embedding → SingleHeadAttention(Q/K/V/O) → FFN(GELU) → Residual → LM Head |
+| 参数量 | ~55K (d=64, d_ff=256, 单头 attention) |
+| 数据 | 8646 tokens，字符级，31 vocab |
+| 超参 | seq_len=32, lr=0.05, SGD, 手动 backward |
+| 结果 | 5000 步，loss 3.13→2.38，53 秒 |
+| 速度 | ~3000 tok/s (GPU, release) |
+| 生成 (greedy) | "the the the the the"（仍重复） |
+| 生成 (sampling) | "the theres arame ans tun thereci"（出现类英文结构） |
+
+**经验**：
+- 加入 attention 后 sampling 生成质量明显好于无 attention 版本，出现 "learning in", "models", "theres" 等类英文片段
+- 单头 attention 的 GPU 训练比无 attention 版本慢（~3000 vs ~5200 tok/s），因为 attention 有 O(seq²) 的 softmax + matmul
+- SGD 收敛比 AdamW 慢，lr=0.05 比 lr=0.01 好很多
+- Greedy 仍然重复——这是字符级小模型的固有问题，不是框架 bug
+- 手动 backward 对单层 attention 可行（~200 行代码），但多层会代码爆炸
+
 ### 关键发现与经验总结
 
 1. **生成质量 vs loss**：loss < 2.0 时 greedy 开始出现词级模式，loss < 1.5 才能生成可读文本。Sampling (temp=0.8, top_k=10) 比 greedy 更能展示模型能力。
