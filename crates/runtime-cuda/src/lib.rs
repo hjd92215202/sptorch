@@ -99,11 +99,24 @@ extern "C" __global__ void relu_kernel(const float* a, float* b, unsigned int n)
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) b[idx] = a[idx] > 0.0f ? a[idx] : 0.0f;
 }
+
+// SGD update: param[i] -= lr * grad[i]
+extern "C" __global__ void sgd_kernel(float* param, const float* grad, float lr, unsigned int n) {
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) param[idx] -= lr * grad[idx];
+}
+
+// Accumulate: a[i] += b[i]
+extern "C" __global__ void accum_kernel(float* a, const float* b, unsigned int n) {
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) a[idx] += b[idx];
+}
 "#;
 
 const KERNEL_NAMES: &[&str] = &[
     "add_kernel", "mul_kernel", "neg_kernel", "scale_kernel",
     "exp_kernel", "log_kernel", "gelu_kernel", "relu_kernel",
+    "sgd_kernel", "accum_kernel",
 ];
 
 // ============ Kernel Operations ============
@@ -225,6 +238,24 @@ impl CudaBackend {
         }.map_err(|e| CudaError::Cublas(e.to_string()))?;
 
         Ok(out)
+    }
+
+    /// SGD update in-place: param -= lr * grad
+    pub fn gpu_sgd_update(&self, param: &mut GpuTensor, grad: &GpuTensor, lr: f32) -> Result<(), CudaError> {
+        assert_eq!(param.numel, grad.numel);
+        let f = self.dev.get_func("elem", "sgd_kernel").unwrap();
+        let cfg = launch_cfg(param.numel);
+        unsafe { f.launch(cfg, (&mut param.data, &grad.data, lr, param.numel as u32)) }?;
+        Ok(())
+    }
+
+    /// Accumulate in-place: a += b
+    pub fn gpu_accum(&self, a: &mut GpuTensor, b: &GpuTensor) -> Result<(), CudaError> {
+        assert_eq!(a.numel, b.numel);
+        let f = self.dev.get_func("elem", "accum_kernel").unwrap();
+        let cfg = launch_cfg(a.numel);
+        unsafe { f.launch(cfg, (&mut a.data, &b.data, a.numel as u32)) }?;
+        Ok(())
     }
 
     // ============ 复合操作 (host-side orchestration + GPU kernels) ============
