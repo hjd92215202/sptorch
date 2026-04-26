@@ -1,7 +1,39 @@
 use core_tensor::{Tensor, Op, Node};
 use std::sync::Arc;
 
-// ============ Tiled Matmul (cache-friendly) ============
+// ============ GPU Accelerator (optional, via "cuda" feature) ============
+
+#[cfg(feature = "cuda")]
+mod gpu_accel {
+    use runtime_cuda::{CudaBackend, GpuTensor};
+    use std::sync::OnceLock;
+
+    static GPU: OnceLock<Option<CudaBackend>> = OnceLock::new();
+
+    pub fn get_gpu() -> Option<&'static CudaBackend> {
+        GPU.get_or_init(|| {
+            match CudaBackend::new(0) {
+                Ok(b) => {
+                    if b.load_kernels().is_ok() {
+                        eprintln!("[sptorch] GPU accelerator enabled (cuBLAS matmul)");
+                        Some(b)
+                    } else { None }
+                }
+                Err(_) => None,
+            }
+        }).as_ref()
+    }
+
+    pub fn gpu_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Option<Vec<f32>> {
+        let backend = get_gpu()?;
+        let ga = GpuTensor::from_host(backend, a, vec![m, k]).ok()?;
+        let gb = GpuTensor::from_host(backend, b, vec![k, n]).ok()?;
+        let gc = backend.gpu_matmul(&ga, &gb).ok()?;
+        gc.to_host(backend).ok()
+    }
+}
+
+// ============ Tiled Matmul (cache-friendly CPU fallback) ============
 
 const TILE: usize = 32;
 
@@ -262,6 +294,11 @@ pub fn matmul(a: &Tensor, b: &Tensor) -> Tensor {
     let a_data = a.data();
     let b_data = b.data();
 
+    #[cfg(feature = "cuda")]
+    let res_data = gpu_accel::gpu_matmul(&a_data, &b_data, m, k, n)
+        .unwrap_or_else(|| tiled_matmul(&a_data, &b_data, m, k, n));
+
+    #[cfg(not(feature = "cuda"))]
     let res_data = tiled_matmul(&a_data, &b_data, m, k, n);
 
     let res = Tensor::new(res_data, vec![m, n]);

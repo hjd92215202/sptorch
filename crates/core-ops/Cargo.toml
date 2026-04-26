@@ -3,5 +3,9 @@ name = "core-ops"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+cuda = ["runtime-cuda"]
+
 [dependencies]
 core-tensor = { path = "../core-tensor" }
+runtime-cuda = { path = "../runtime-cuda", optional = true }

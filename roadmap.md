@@ -177,6 +177,45 @@ crates/
 - Greedy 仍然重复——这是字符级小模型的固有问题，不是框架 bug
 - 手动 backward 对单层 attention 可行（~200 行代码），但多层会代码爆炸
 
+### 实验 6：CPU Autograd + GPU cuBLAS 混合训练
+
+| 配置 | 值 |
+|------|-----|
+| 模型 | GPT: 2层4头, d=48, d_ff=192（完整 Transformer，autograd 反向传播） |
+| 参数量 | ~60K |
+| 数据 | 8646 tokens，字符级，31 vocab |
+| 超参 | seq_len=32, lr=5e-3, warmup=100, cosine decay, AdamW |
+| GPU 加速 | core-ops matmul 自动 offload 到 cuBLAS（feature flag "cuda"） |
+| 结果 | 3000 步，loss 2.72→1.80，115 秒 |
+| 速度 | ~850 tok/s |
+| 生成 (greedy) | "the train the the train the train"（首次出现词级模式） |
+| 生成 (sampling) | "the to produtions al a to padwicalins toker formatt"（类英文句子） |
+
+**经验**：
+- 这是最佳方案：autograd 保证梯度正确性，cuBLAS 加速 matmul 热点
+- loss 首次降到 2.0 以下（1.80），greedy 生成出现 "train", "model" 等完整单词
+- 速度比纯 CPU（~1000 tok/s）略慢——因为小矩阵的 GPU 传输开销抵消了 cuBLAS 加速
+- 对于大矩阵（d≥128），GPU 加速效果会更明显
+- AdamW + cosine decay 比 SGD 收敛快得多（同样 3000 步，AdamW loss 1.80 vs SGD loss 2.38）
+- Checkpoint 保存/加载验证通过
+
+### 8. GPU matmul offload 方案选择（P3.5）
+
+**问题**：如何让现有 autograd 框架利用 GPU 加速，而不重写整个 Storage 层？
+
+**分析**：
+- 方案 A：重构 core-tensor Storage 支持 GPU 内存 → 改动巨大，破坏 106 个测试
+- 方案 B：在 core-ops 中用 feature flag 可选依赖 runtime-cuda，matmul 自动 offload → 零侵入
+
+**决策**：方案 B。在 `core-ops/Cargo.toml` 中加 `cuda = ["runtime-cuda"]` feature，matmul 函数内部检测 GPU 可用性，自动选择 cuBLAS 或 CPU tiled matmul。用 `OnceLock` 做全局单例初始化。
+
+**结果**：
+- 现有 106 个测试不受影响（不启用 cuda feature 时完全不变）
+- cli-train 只需在 Cargo.toml 加 `cuda = ["core-ops/cuda"]` 即可启用
+- 首次 matmul 调用时自动初始化 GPU，打印 `[sptorch] GPU accelerator enabled`
+
+**教训**：feature flag + 全局单例是 Rust 中做可选硬件加速的惯用模式，比改 trait 层级简单得多。
+
 ---
 
 ## 调试过程与决策记录

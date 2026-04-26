@@ -7,6 +7,10 @@ edition = "2021"
 name = "sptorch-train"
 path = "src/main.rs"
 
+[features]
+default = ["cuda"]
+cuda = ["core-ops/cuda"]
+
 [dependencies]
 core-tensor = { path = "../core-tensor" }
 core-ops = { path = "../core-ops" }
