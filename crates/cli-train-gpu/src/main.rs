@@ -1,5 +1,5 @@
 use runtime_cuda::{CudaBackend, GpuTensor};
-use data::{CharTokenizer, TextDataset, Dataset, DataLoader};
+use data::{CharTokenizer, Tokenizer, TextDataset, Dataset, DataLoader};
 use std::time::Instant;
 use rand::Rng;
 
