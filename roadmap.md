@@ -199,6 +199,40 @@ crates/
 - AdamW + cosine decay 比 SGD 收敛快得多（同样 3000 步，AdamW loss 1.80 vs SGD loss 2.38）
 - Checkpoint 保存/加载验证通过
 
+### 实验 7：3层 Transformer + GPU matmul dispatch（含阈值优化）
+
+| 配置 | 值 |
+|------|-----|
+| 模型 | GPT: 3层4头, d=64, d_ff=256（完整 Transformer，autograd 反向传播） |
+| 参数量 | ~155K |
+| 数据 | 8646 tokens，字符级，31 vocab |
+| 超参 | seq_len=32, lr=3e-3, warmup=200, cosine decay, AdamW |
+| GPU 加速 | dispatch_matmul: 大矩阵(≥128²元素)走cuBLAS，小矩阵走CPU tiled |
+| 结果 | 2500 步（被中断），loss 2.66→1.80 |
+| 速度 | ~18-48 tok/s（随 backward 计算图增大逐步变慢） |
+| 生成 | "the the the traing th traing the t"（出现 "traing" = training 近似） |
+
+**经验**：
+- backward 中的 matmul 也走 dispatch_matmul 后，比只加速 forward 快了约 45%
+- 但 3 层 Transformer 的 autograd backward 涉及大量小矩阵操作，GPU 传输开销仍然是瓶颈
+- 加入矩阵大小阈值（128²）后，小矩阵走 CPU 避免了无谓的传输开销
+- 155K 参数模型 5000 步需要约 2.5 小时——对于迭代实验不实际
+- 核心瓶颈不是 matmul 本身，而是 autograd 框架每个算子都独立调用 matmul，无法批量化
+
+### 9. GPU matmul 阈值优化（P3.6）
+
+**问题**：GPU matmul offload 对小矩阵（64×64）反而变慢——从 CPU ~850 tok/s 降到 ~33 tok/s。
+
+**分析**：每次 GPU matmul 需要 htod + kernel launch + dtoh，对于 64×64 矩阵（4KB 数据），传输延迟 ~0.1ms 远大于计算时间 ~0.01ms。
+
+**尝试**：
+- 无阈值：所有 matmul 走 GPU → 33 tok/s（比纯 CPU 慢 25×）
+- 阈值 128²：大矩阵走 GPU，小矩阵走 CPU → 48 tok/s（提升 45%）
+
+**决策**：`GPU_MATMUL_THRESHOLD = 128 * 128`。矩阵总元素数（m×k + k×n）超过阈值才 offload。
+
+**教训**：GPU 加速不是万能的。对于小矩阵，CPU cache-friendly 的 tiled matmul 比 GPU 更快。真正的 GPU 加速需要把整个计算图放到 GPU 上（避免反复传输），而不是逐算子 offload。
+
 ### 8. GPU matmul offload 方案选择（P3.5）
 
 **问题**：如何让现有 autograd 框架利用 GPU 加速，而不重写整个 Storage 层？
