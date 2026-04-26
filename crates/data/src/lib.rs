@@ -2,6 +2,14 @@ use std::collections::HashMap;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+// ============ Tokenizer Trait ============
+
+pub trait Tokenizer {
+    fn encode(&self, text: &str) -> Vec<usize>;
+    fn decode(&self, ids: &[usize]) -> String;
+    fn vocab_size(&self) -> usize;
+}
+
 // ============ CharTokenizer ============
 
 pub struct CharTokenizer {
@@ -18,16 +26,128 @@ impl CharTokenizer {
             chars.iter().enumerate().map(|(i, &c)| (c, i)).collect();
         CharTokenizer { vocab: chars, char_to_id }
     }
+}
 
-    pub fn encode(&self, text: &str) -> Vec<usize> {
+impl Tokenizer for CharTokenizer {
+    fn encode(&self, text: &str) -> Vec<usize> {
         text.chars().filter_map(|c| self.char_to_id.get(&c).copied()).collect()
     }
 
-    pub fn decode(&self, ids: &[usize]) -> String {
+    fn decode(&self, ids: &[usize]) -> String {
         ids.iter().map(|&id| self.vocab[id]).collect()
     }
 
-    pub fn vocab_size(&self) -> usize {
+    fn vocab_size(&self) -> usize {
+        self.vocab.len()
+    }
+}
+
+// ============ BPE Tokenizer ============
+
+pub struct BpeTokenizer {
+    vocab: Vec<String>,           // id -> token string
+    token_to_id: HashMap<String, usize>,
+    merges: Vec<(usize, usize)>,  // ordered merge rules: (id_a, id_b) -> new_id
+}
+
+impl BpeTokenizer {
+    /// Train BPE from text. Starts with byte-level vocab (256 chars),
+    /// then greedily merges the most frequent adjacent pair until vocab_size reached.
+    pub fn train(text: &str, target_vocab_size: usize) -> Self {
+        // Initialize with single characters found in text
+        let mut chars: Vec<char> = text.chars().collect();
+        chars.sort();
+        chars.dedup();
+
+        let mut vocab: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
+        let mut token_to_id: HashMap<String, usize> =
+            vocab.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
+
+        // Encode text as initial token ids
+        let mut token_ids: Vec<usize> = text.chars()
+            .map(|c| *token_to_id.get(&c.to_string()).unwrap())
+            .collect();
+
+        let mut merges = Vec::new();
+
+        while vocab.len() < target_vocab_size {
+            // Count adjacent pairs
+            let mut pair_counts: HashMap<(usize, usize), usize> = HashMap::new();
+            for w in token_ids.windows(2) {
+                *pair_counts.entry((w[0], w[1])).or_insert(0) += 1;
+            }
+
+            if pair_counts.is_empty() {
+                break;
+            }
+
+            // Find most frequent pair
+            let &best_pair = pair_counts.iter()
+                .max_by_key(|(_, &count)| count)
+                .map(|(pair, _)| pair)
+                .unwrap();
+
+            let (a, b) = best_pair;
+            let new_token = format!("{}{}", vocab[a], vocab[b]);
+            let new_id = vocab.len();
+            vocab.push(new_token.clone());
+            token_to_id.insert(new_token, new_id);
+            merges.push(best_pair);
+
+            // Apply merge to token_ids
+            let mut new_ids = Vec::with_capacity(token_ids.len());
+            let mut i = 0;
+            while i < token_ids.len() {
+                if i + 1 < token_ids.len() && token_ids[i] == a && token_ids[i + 1] == b {
+                    new_ids.push(new_id);
+                    i += 2;
+                } else {
+                    new_ids.push(token_ids[i]);
+                    i += 1;
+                }
+            }
+            token_ids = new_ids;
+        }
+
+        BpeTokenizer { vocab, token_to_id, merges }
+    }
+}
+
+impl Tokenizer for BpeTokenizer {
+    fn encode(&self, text: &str) -> Vec<usize> {
+        // Start with character-level tokens
+        let mut ids: Vec<usize> = text.chars()
+            .filter_map(|c| self.token_to_id.get(&c.to_string()).copied())
+            .collect();
+
+        // Apply merges in order
+        for &(a, b) in &self.merges {
+            let new_id = self.token_to_id.get(&format!("{}{}", self.vocab[a], self.vocab[b]));
+            let new_id = match new_id {
+                Some(&id) => id,
+                None => continue,
+            };
+            let mut new_ids = Vec::with_capacity(ids.len());
+            let mut i = 0;
+            while i < ids.len() {
+                if i + 1 < ids.len() && ids[i] == a && ids[i + 1] == b {
+                    new_ids.push(new_id);
+                    i += 2;
+                } else {
+                    new_ids.push(ids[i]);
+                    i += 1;
+                }
+            }
+            ids = new_ids;
+        }
+        ids
+    }
+
+    fn decode(&self, ids: &[usize]) -> String {
+        ids.iter().map(|&id| self.vocab[id].as_str()).collect()
+    }
+
+    fn vocab_size(&self) -> usize {
         self.vocab.len()
     }
 }
@@ -181,8 +301,43 @@ mod tests {
     fn test_dataloader_num_batches() {
         let tokens = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let ds = TextDataset::new(tokens, 3);
-        // len = 10 - 3 = 7 samples, batch_size=3 => ceil(7/3) = 3 batches
         let dl = DataLoader::new(&ds, 3, false);
         assert_eq!(dl.num_batches(), 3);
+    }
+
+    // --- BPE Tokenizer tests ---
+
+    #[test]
+    fn test_bpe_train_basic() {
+        let text = "aaabdaaabac";
+        let tok = BpeTokenizer::train(text, 10);
+        assert!(tok.vocab_size() > 4); // at least a,b,c,d + some merges
+        assert!(tok.vocab_size() <= 10);
+    }
+
+    #[test]
+    fn test_bpe_roundtrip() {
+        let text = "the quick brown fox jumps over the lazy dog";
+        let tok = BpeTokenizer::train(text, 50);
+        let ids = tok.encode(text);
+        let decoded = tok.decode(&ids);
+        assert_eq!(decoded, text);
+    }
+
+    #[test]
+    fn test_bpe_compression() {
+        let text = "hello hello hello hello hello world world world";
+        let tok = BpeTokenizer::train(text, 30);
+        let ids = tok.encode(text);
+        // BPE should compress repeated patterns, so fewer tokens than chars
+        assert!(ids.len() < text.len());
+    }
+
+    #[test]
+    fn test_bpe_vocab_contains_merges() {
+        let text = "abababab";
+        let tok = BpeTokenizer::train(text, 5);
+        // Should have merged "a"+"b" -> "ab"
+        assert!(tok.vocab.iter().any(|s| s == "ab"));
     }
 }

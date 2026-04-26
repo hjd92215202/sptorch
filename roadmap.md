@@ -339,6 +339,45 @@ crates/
 
 **教训**：SGD 需要比 AdamW 更高的 lr（约 5-10×），但也更容易发散。后续应在 GPU 上实现 AdamW（需要 m/v 状态的 GPU buffer）。
 
+### 实验 8：BPE Tokenizer + CPU Transformer（生成质量飞跃）
+
+| 配置 | 值 |
+|------|-----|
+| 模型 | GPT: 2层4头, d=48, d_ff=192（完整 Transformer，autograd） |
+| 参数量 | ~77K |
+| Tokenizer | BPE, vocab=200, 压缩比 2.3x（8646 字符 → 3837 tokens） |
+| 超参 | seq_len=32, lr=5e-3, warmup=100, cosine decay, AdamW |
+| 结果 | 3000 步，loss 4.75→1.64，104 秒 |
+| 速度 | ~920 tok/s |
+| 生成 (greedy) | "the rust is to programming language model", "hello world this is a test" |
+| 生成 (sampling) | "the transformer layer", "neural network", "learn patterns from data" |
+
+**经验**：
+- BPE 是生成质量提升最大的单一改进——从乱码到可读英文
+- 同样的模型（2层48维），BPE loss 1.64 vs 字符级 loss 1.80，但生成质量天壤之别
+- BPE 压缩后 token 数减少 2.3x，等效于每个 token 覆盖更多语义信息
+- vocab=200 对 8.6K 字符的小语料已经足够，更大 vocab 会导致稀疏 embedding 难训练
+- Greedy 生成首次出现完整短语："hello world this is a test"、"programming language model"
+
+### 10. BPE vs 字符级 tokenizer 对比（关键决策）
+
+**问题**：字符级 tokenizer（vocab=31）生成质量差，即使 loss 降到 1.8 也只能生成重复文本。
+
+**分析**：
+- 字符级：每个 token 是单个字符，模型需要学习字符组合规律才能生成单词
+- BPE：每个 token 是常见子词（"the", "ing", "model"），模型直接在词级别操作
+
+**对比**：
+
+| 指标 | 字符级 (vocab=31) | BPE (vocab=200) |
+|------|-------------------|-----------------|
+| 压缩比 | 1.0x | 2.3x |
+| 3000步 loss | 1.80 | 1.64 |
+| Greedy 生成 | "the train the the train" | "hello world this is a test" |
+| Sampling 生成 | "produtions al a to" | "the transformer layer" |
+
+**教训**：tokenizer 是 LLM 生成质量的基础。在模型架构和训练技巧之前，先把 tokenizer 做对。
+
 ---
 
 ## 关键发现与经验总结

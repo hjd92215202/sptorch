@@ -1,35 +1,36 @@
 use core_ops::*;
 use nn::{GPT, generate_greedy, generate_with_sampling};
 use optim::{AdamW, Optimizer, CosineScheduler, LrScheduler, clip_grad_norm};
-use data::{CharTokenizer, TextDataset, Dataset, DataLoader};
+use data::{BpeTokenizer, Tokenizer, TextDataset, Dataset, DataLoader};
 use serialize::{save_checkpoint, load_checkpoint};
 use std::time::Instant;
 
 fn main() {
-    println!("SPTorch MiniGPT Training");
-    println!("========================\n");
+    println!("SPTorch MiniGPT Training (BPE)");
+    println!("==============================\n");
 
     // 准备数据
     let text = include_str!("train_data.txt");
 
-    let tokenizer = CharTokenizer::from_text(text);
+    let bpe_vocab_size = 200;
+    let tokenizer = BpeTokenizer::train(text, bpe_vocab_size);
     let tokens = tokenizer.encode(text);
     let vocab_size = tokenizer.vocab_size();
 
-    println!("Vocab size: {}", vocab_size);
-    println!("Total tokens: {}", tokens.len());
+    println!("BPE vocab size: {} (target {})", vocab_size, bpe_vocab_size);
+    println!("Total tokens: {} (compression ratio: {:.1}x)", tokens.len(), text.len() as f32 / tokens.len() as f32);
 
     // 超参数
     let seq_len = 32;
-    let d_model = 64;
+    let d_model = 48;
     let n_head = 4;
-    let n_layer = 3;
-    let d_ff = 256;
-    let lr = 3e-3;
-    let max_steps: u64 = 5000;
-    let warmup_steps: u64 = 200;
-    let log_interval = 500;
-    let checkpoint_path = "minigpt_checkpoint.sptc";
+    let n_layer = 2;
+    let d_ff = 192;
+    let lr = 5e-3;
+    let max_steps: u64 = 3000;
+    let warmup_steps: u64 = 100;
+    let log_interval = 300;
+    let checkpoint_path = "minigpt_bpe_checkpoint.sptc";
 
     // 模型
     let model = GPT::new(vocab_size, d_model, n_head, n_layer, d_ff, seq_len);
