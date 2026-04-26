@@ -1,0 +1,8 @@
+[package]
+name = "runtime-cuda"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+cudarc = { version = "0.12", features = ["cublas", "nvrtc", "cuda-12040"] }

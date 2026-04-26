@@ -8,6 +8,7 @@ members = [
     "crates/optim",
     "crates/data",
     "crates/serialize",
+    "crates/runtime-cuda",
     "crates/cli-train",
 ]
 resolver = "2"
