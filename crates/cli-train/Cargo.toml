@@ -8,7 +8,6 @@ name = "sptorch-train"
 path = "src/main.rs"
 
 [features]
-default = ["cuda"]
 cuda = ["core-ops/cuda"]
 
 [dependencies]
