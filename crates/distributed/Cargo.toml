@@ -1,0 +1,13 @@
+[package]
+name = "distributed"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+tokio = { version = "1", features = ["full"] }
+tonic = "0.12"
+prost = "0.13"
+
+[build-dependencies]
+tonic-build = "0.12"

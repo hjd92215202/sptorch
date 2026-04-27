@@ -81,6 +81,110 @@ impl Module for Linear {
 
 // ============ Embedding ============
 
+// ============ LoRA Linear ============
+
+/// LoRA adapter wrapping a frozen Linear layer.
+/// Forward: output = x @ W^T + x @ (B @ A)^T * (alpha / rank)
+/// Only A and B are trainable; W is frozen.
+pub struct LoRALinear {
+    pub base: Linear,
+    pub lora_a: Tensor, // [rank, in_features]
+    pub lora_b: Tensor, // [out_features, rank]
+    pub alpha: f32,
+    pub rank: usize,
+}
+
+impl LoRALinear {
+    /// Wrap an existing Linear with LoRA adapters.
+    /// Freezes the base weight (requires_grad = false).
+    pub fn new(base: Linear, rank: usize, alpha: f32) -> Self {
+        let in_features = base.weight.shape()[1];
+        let out_features = base.weight.shape()[0];
+
+        // Freeze base weight
+        base.weight.0.write().unwrap().requires_grad = false;
+        if let Some(ref b) = base.bias {
+            b.0.write().unwrap().requires_grad = false;
+        }
+
+        // A: kaiming init, B: zeros (so LoRA starts as identity)
+        let lora_a = kaiming_normal(rank, in_features);
+        let lora_b = Tensor::with_grad(vec![0.0; out_features * rank], vec![out_features, rank], true);
+
+        LoRALinear { base, lora_a, lora_b, alpha, rank }
+    }
+
+    /// Create LoRA from scratch (new Linear + LoRA adapters).
+    pub fn from_dims(in_features: usize, out_features: usize, use_bias: bool, rank: usize, alpha: f32) -> Self {
+        let base = Linear::new(in_features, out_features, use_bias);
+        Self::new(base, rank, alpha)
+    }
+}
+
+impl Module for LoRALinear {
+    fn forward(&self, input: &Tensor) -> Tensor {
+        // Base: x @ W^T
+        let base_out = self.base.forward(input);
+
+        // LoRA: x @ A^T @ B^T * (alpha / rank)
+        let at = transpose(&self.lora_a);
+        let bt = transpose(&self.lora_b);
+        let xa = matmul(input, &at);   // [batch, rank]
+        let xab = matmul(&xa, &bt);    // [batch, out_features]
+        let scaling = self.alpha / self.rank as f32;
+        let lora_out = scale(&xab, scaling);
+
+        add(&base_out, &lora_out)
+    }
+
+    fn parameters(&self) -> Vec<Tensor> {
+        // Only return trainable LoRA parameters
+        vec![self.lora_a.clone(), self.lora_b.clone()]
+    }
+}
+
+impl LoRALinear {
+    /// Return all parameters including frozen base (for checkpoint saving).
+    pub fn all_parameters(&self) -> Vec<Tensor> {
+        let mut p = self.base.parameters();
+        p.push(self.lora_a.clone());
+        p.push(self.lora_b.clone());
+        p
+    }
+
+    /// Merge LoRA weights into base: W' = W + (alpha/rank) * B @ A
+    /// After merging, the LoRA adapters are zeroed out.
+    pub fn merge(&self) {
+        let a_data = self.lora_a.contiguous_data();
+        let b_data = self.lora_b.contiguous_data();
+        let out_features = self.base.weight.shape()[0];
+        let in_features = self.base.weight.shape()[1];
+        let scaling = self.alpha / self.rank as f32;
+
+        // B @ A: [out, rank] @ [rank, in] = [out, in]
+        let mut ba = vec![0.0f32; out_features * in_features];
+        for i in 0..out_features {
+            for j in 0..in_features {
+                let mut sum = 0.0f32;
+                for r in 0..self.rank {
+                    sum += b_data[i * self.rank + r] * a_data[r * in_features + j];
+                }
+                ba[i * in_features + j] = sum * scaling;
+            }
+        }
+
+        // W += B @ A * scaling
+        let inner = self.base.weight.0.read().unwrap();
+        let mut storage = inner.storage.write().unwrap();
+        let w = storage.as_cpu_slice_mut();
+        for i in 0..w.len() {
+            w[i] += ba[i];
+        }
+    }
+}
+
+// ============ Embedding ============
+
 pub struct Embedding {
     pub weight: Tensor, // [num_embeddings, embedding_dim]
 }
@@ -653,6 +757,138 @@ pub fn generate_with_sampling(
     ids
 }
 
+// ============ Constrained Decoding ============
+
+/// Prefix trie for constraining token generation.
+/// Each node maps token_id -> child node. A node with `is_terminal = true`
+/// marks the end of a valid sequence.
+#[derive(Debug, Clone)]
+pub struct TokenTrie {
+    children: std::collections::HashMap<usize, TokenTrie>,
+    is_terminal: bool,
+}
+
+impl TokenTrie {
+    pub fn new() -> Self {
+        TokenTrie {
+            children: std::collections::HashMap::new(),
+            is_terminal: false,
+        }
+    }
+
+    /// Insert a token sequence into the trie.
+    pub fn insert(&mut self, tokens: &[usize]) {
+        let mut node = self;
+        for &t in tokens {
+            node = node.children.entry(t).or_insert_with(TokenTrie::new);
+        }
+        node.is_terminal = true;
+    }
+
+    /// Get the set of allowed next tokens given a prefix of already-generated tokens.
+    /// Returns None if the prefix doesn't match any path (unconstrained fallback).
+    pub fn allowed_tokens(&self, prefix: &[usize]) -> Option<Vec<usize>> {
+        let mut node = self;
+        for &t in prefix {
+            match node.children.get(&t) {
+                Some(child) => node = child,
+                None => return None,
+            }
+        }
+        if node.children.is_empty() {
+            None // terminal or dead end — no constraint
+        } else {
+            Some(node.children.keys().copied().collect())
+        }
+    }
+}
+
+/// Trait for custom token constraints at each decoding step.
+/// Implement this to plug in SQL grammar, regex, or schema-based constraints.
+pub trait TokenConstraint: Send + Sync {
+    /// Given the tokens generated so far, return the set of allowed next token IDs.
+    /// Return None to allow all tokens (unconstrained).
+    fn allowed_next(&self, generated: &[usize]) -> Option<Vec<usize>>;
+}
+
+impl TokenConstraint for TokenTrie {
+    fn allowed_next(&self, generated: &[usize]) -> Option<Vec<usize>> {
+        self.allowed_tokens(generated)
+    }
+}
+
+/// Generate tokens with constraints applied at each step.
+/// Disallowed tokens get logit = -inf before sampling.
+pub fn generate_constrained(
+    model: &GPT,
+    prompt: &[usize],
+    max_new_tokens: usize,
+    vocab_size: usize,
+    temperature: f32,
+    top_k: usize,
+    constraint: &dyn TokenConstraint,
+) -> Vec<usize> {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let mut ids = prompt.to_vec();
+    let prompt_len = prompt.len();
+
+    for _ in 0..max_new_tokens {
+        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let logits = model.forward_ids(ctx);
+        let logits_data = logits.contiguous_data();
+        let last = &logits_data[logits_data.len() - vocab_size..];
+
+        // Apply constraint mask
+        let generated_so_far = &ids[prompt_len..];
+        let allowed = constraint.allowed_next(generated_so_far);
+
+        let mut masked: Vec<f32> = last.to_vec();
+        if let Some(ref allowed_set) = allowed {
+            for i in 0..vocab_size {
+                if !allowed_set.contains(&i) {
+                    masked[i] = f32::NEG_INFINITY;
+                }
+            }
+        }
+
+        // Apply temperature
+        let scaled: Vec<f32> = masked.iter().map(|x| x / temperature.max(1e-8)).collect();
+
+        // Top-k filtering
+        let mut indexed: Vec<(usize, f32)> = scaled.iter().enumerate()
+            .filter(|(_, &v)| v.is_finite())
+            .map(|(i, &v)| (i, v))
+            .collect();
+        if indexed.is_empty() {
+            break; // no valid tokens
+        }
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        let k = top_k.min(indexed.len());
+        let top = &indexed[..k];
+
+        // Softmax over top-k
+        let max_val = top[0].1;
+        let exps: Vec<f32> = top.iter().map(|(_, v)| (v - max_val).exp()).collect();
+        let sum: f32 = exps.iter().sum();
+        let probs: Vec<f32> = exps.iter().map(|e| e / sum).collect();
+
+        // Sample
+        let r: f32 = rng.gen();
+        let mut cumsum = 0.0;
+        let mut next = top[0].0;
+        for (i, &p) in probs.iter().enumerate() {
+            cumsum += p;
+            if r < cumsum {
+                next = top[i].0;
+                break;
+            }
+        }
+        ids.push(next);
+    }
+    ids
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -795,5 +1031,173 @@ mod tests {
             let name = if i < param_names.len() { param_names[i] } else { "unknown" };
             assert!(p.grad().is_some(), "param[{}] '{}' has no gradient", i, name);
         }
+    }
+
+    // --- LoRA tests ---
+
+    #[test]
+    fn test_lora_forward_shape() {
+        let lora = LoRALinear::from_dims(4, 3, true, 2, 1.0);
+        let input = Tensor::new(vec![1.0; 8], vec![2, 4]);
+        let out = lora.forward(&input);
+        assert_eq!(out.shape(), vec![2, 3]);
+    }
+
+    #[test]
+    fn test_lora_only_adapters_trainable() {
+        let lora = LoRALinear::from_dims(4, 3, true, 2, 1.0);
+        // parameters() should only return lora_a and lora_b
+        assert_eq!(lora.parameters().len(), 2);
+        // all_parameters() should include base weight + bias + lora_a + lora_b
+        assert_eq!(lora.all_parameters().len(), 4);
+        // Base weight should be frozen
+        assert!(!lora.base.weight.requires_grad());
+    }
+
+    #[test]
+    fn test_lora_starts_as_base() {
+        // With B initialized to zeros, LoRA output should equal base output
+        let base = Linear::new(4, 3, false);
+        let base_weight_data = base.weight.data();
+        let lora = LoRALinear::new(base, 2, 1.0);
+
+        let input = Tensor::new(vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], vec![2, 4]);
+        let lora_out = lora.forward(&input);
+
+        // Manually compute base output: input @ W^T
+        let wt_data = {
+            let w = base_weight_data;
+            // W is [3, 4], W^T is [4, 3]
+            let mut wt = vec![0.0f32; 4 * 3];
+            for i in 0..3 {
+                for j in 0..4 {
+                    wt[j * 3 + i] = w[i * 4 + j];
+                }
+            }
+            wt
+        };
+        let mut expected = vec![0.0f32; 2 * 3];
+        for i in 0..2 {
+            for j in 0..3 {
+                for k in 0..4 {
+                    expected[i * 3 + j] += input.data()[i * 4 + k] * wt_data[k * 3 + j];
+                }
+            }
+        }
+
+        let out_data = lora_out.data();
+        for i in 0..6 {
+            assert!((out_data[i] - expected[i]).abs() < 1e-5,
+                "mismatch at {}: got {} expected {}", i, out_data[i], expected[i]);
+        }
+    }
+
+    #[test]
+    fn test_lora_backward_runs() {
+        let lora = LoRALinear::from_dims(4, 3, false, 2, 1.0);
+        let input = Tensor::with_grad(vec![0.1; 8], vec![2, 4], true);
+        let out = lora.forward(&input);
+        let loss = sum(&out);
+        loss.backward();
+
+        // LoRA adapters should have gradients
+        assert!(lora.lora_a.grad().is_some(), "lora_a has no gradient");
+        assert!(lora.lora_b.grad().is_some(), "lora_b has no gradient");
+    }
+
+    #[test]
+    fn test_lora_merge() {
+        let lora = LoRALinear::from_dims(4, 3, false, 2, 2.0);
+
+        // Manually set lora_a and lora_b to known values
+        {
+            let inner = lora.lora_a.0.read().unwrap();
+            let mut s = inner.storage.write().unwrap();
+            let slice = s.as_cpu_slice_mut();
+            // rank=2, in=4 -> [2, 4]
+            for (i, v) in [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0].iter().enumerate() {
+                slice[i] = *v;
+            }
+        }
+        {
+            let inner = lora.lora_b.0.read().unwrap();
+            let mut s = inner.storage.write().unwrap();
+            let slice = s.as_cpu_slice_mut();
+            // out=3, rank=2 -> [3, 2]
+            for (i, v) in [1.0, 0.0, 0.0, 1.0, 0.0, 0.0].iter().enumerate() {
+                slice[i] = *v;
+            }
+        }
+
+        let w_before = lora.base.weight.data();
+        lora.merge();
+        let w_after = lora.base.weight.data();
+
+        // B @ A = [[1,0],[0,1],[0,0]] @ [[1,0,0,0],[0,1,0,0]]
+        //       = [[1,0,0,0],[0,1,0,0],[0,0,0,0]]
+        // scaling = alpha/rank = 2/2 = 1.0
+        // W[0][0] should increase by 1.0, W[1][1] by 1.0
+        assert!((w_after[0] - w_before[0] - 1.0).abs() < 1e-6);
+        assert!((w_after[5] - w_before[5] - 1.0).abs() < 1e-6);
+        // W[2][2] should be unchanged
+        assert!((w_after[10] - w_before[10]).abs() < 1e-6);
+    }
+
+    // --- TokenTrie tests ---
+
+    #[test]
+    fn test_trie_basic() {
+        let mut trie = TokenTrie::new();
+        // "SELECT" = [0, 1, 2]
+        // "SET"    = [0, 1, 3]
+        trie.insert(&[0, 1, 2]);
+        trie.insert(&[0, 1, 3]);
+
+        // At root, only token 0 is allowed
+        assert_eq!(trie.allowed_tokens(&[]), Some(vec![0]));
+
+        // After [0], only token 1
+        assert_eq!(trie.allowed_tokens(&[0]), Some(vec![1]));
+
+        // After [0, 1], tokens 2 and 3
+        let mut allowed = trie.allowed_tokens(&[0, 1]).unwrap();
+        allowed.sort();
+        assert_eq!(allowed, vec![2, 3]);
+
+        // After [0, 1, 2], terminal — no children
+        assert_eq!(trie.allowed_tokens(&[0, 1, 2]), None);
+
+        // Invalid prefix
+        assert_eq!(trie.allowed_tokens(&[5]), None);
+    }
+
+    #[test]
+    fn test_trie_constraint_trait() {
+        let mut trie = TokenTrie::new();
+        trie.insert(&[10, 20]);
+        trie.insert(&[10, 30]);
+
+        let constraint: &dyn TokenConstraint = &trie;
+        assert_eq!(constraint.allowed_next(&[]), Some(vec![10]));
+
+        let mut allowed = constraint.allowed_next(&[10]).unwrap();
+        allowed.sort();
+        assert_eq!(allowed, vec![20, 30]);
+    }
+
+    #[test]
+    fn test_constrained_generation_respects_trie() {
+        // Build a tiny model and a trie that only allows token 0 -> 1 -> 2
+        let gpt = GPT::new(4, 4, 2, 1, 8, 4);
+        let mut trie = TokenTrie::new();
+        trie.insert(&[0, 1, 2]);
+
+        let result = generate_constrained(&gpt, &[0], 3, 4, 0.01, 4, &trie);
+        // First generated token must be 0 (trie root allows only 0)
+        assert_eq!(result[1], 0, "first generated token should be 0 per trie constraint");
+        // Second must be 1
+        assert_eq!(result[2], 1, "second generated token should be 1 per trie constraint");
+        // Third must be 2
+        assert_eq!(result[3], 2, "third generated token should be 2 per trie constraint");
     }
 }

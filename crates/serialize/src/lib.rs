@@ -3,6 +3,8 @@ use std::io::{self, Read, Write, BufReader, BufWriter};
 use std::fs::File;
 use std::path::Path;
 
+pub mod safetensors;
+
 const MAGIC: u32 = 0x5350_5443; // "SPTC"
 const VERSION: u32 = 1;
 
@@ -88,7 +90,7 @@ pub fn load_checkpoint<P: AsRef<Path>>(path: P, params: &[Tensor]) -> io::Result
         // Write data into the parameter's storage
         let inner = p.0.read().unwrap();
         let mut storage = inner.storage.write().unwrap();
-        storage.data.copy_from_slice(&data);
+        storage.as_cpu_slice_mut().copy_from_slice(&data);
     }
 
     Ok(())

@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package sptorch.distributed;
+
+// Node coordination service
+service NodeService {
+  // Heartbeat to check node liveness
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Register a worker node with the coordinator
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // AllReduce: send local gradients, receive globally reduced gradients
+  rpc AllReduceGradients(GradientChunk) returns (GradientChunk);
+
+  // Barrier synchronization
+  rpc Barrier(BarrierRequest) returns (BarrierResponse);
+}
+
+message HeartbeatRequest {
+  string node_id = 1;
+  uint64 step = 2;
+}
+
+message HeartbeatResponse {
+  bool alive = 1;
+  uint64 global_step = 2;
+}
+
+message RegisterRequest {
+  string node_id = 1;
+  string address = 2;
+  uint32 world_size = 3;
+}
+
+message RegisterResponse {
+  uint32 rank = 1;
+  uint32 world_size = 2;
+  repeated string peer_addresses = 3;
+}
+
+message GradientChunk {
+  uint32 param_index = 1;
+  uint32 rank = 2;
+  uint32 world_size = 3;
+  bytes data = 4;  // f32 little-endian
+  repeated uint32 shape = 5;
+}
+
+message BarrierRequest {
+  string node_id = 1;
+  uint64 step = 2;
+}
+
+message BarrierResponse {
+  bool proceed = 1;
+}

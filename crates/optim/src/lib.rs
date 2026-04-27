@@ -35,7 +35,8 @@ pub fn clip_grad_norm(params: &[Tensor], max_norm: f32) -> f32 {
             if let Some(ref grad_tensor) = inner.grad {
                 let g_inner = grad_tensor.0.write().unwrap();
                 let mut g_storage = g_inner.storage.write().unwrap();
-                for v in g_storage.data.iter_mut() {
+                let g_slice = g_storage.as_cpu_slice_mut();
+                for v in g_slice.iter_mut() {
                     *v *= scale;
                 }
             }
@@ -97,7 +98,8 @@ impl Optimizer for SGD {
 
             let inner = param.0.read().unwrap();
             let mut storage = inner.storage.write().unwrap();
-            for (w, u) in storage.data.iter_mut().zip(update.iter()) {
+            let w_slice = storage.as_cpu_slice_mut();
+            for (w, u) in w_slice.iter_mut().zip(update.iter()) {
                 *w -= self.lr * u;
             }
         }
@@ -153,10 +155,11 @@ impl Optimizer for AdamW {
 
             let inner = param.0.read().unwrap();
             let mut storage = inner.storage.write().unwrap();
+            let w_slice = storage.as_cpu_slice_mut();
 
             // Decoupled weight decay
             if self.weight_decay != 0.0 {
-                for w in storage.data.iter_mut() {
+                for w in w_slice.iter_mut() {
                     *w *= 1.0 - self.lr * self.weight_decay;
                 }
             }
@@ -168,10 +171,10 @@ impl Optimizer for AdamW {
             }
 
             // Bias-corrected update
-            for j in 0..storage.data.len() {
+            for j in 0..w_slice.len() {
                 let m_hat = self.m[i][j] / bc1;
                 let v_hat = self.v[i][j] / bc2;
-                storage.data[j] -= self.lr * m_hat / (v_hat.sqrt() + self.eps);
+                w_slice[j] -= self.lr * m_hat / (v_hat.sqrt() + self.eps);
             }
         }
     }

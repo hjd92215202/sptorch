@@ -1,7 +1,12 @@
 # SPTorch 开发路线图
 
-> 用 Rust 从零实现的类 PyTorch 深度学习框架，最终目标：训练 MiniGPT。
-> 两大核心目标：**硬件普惠**（多后端适配）+ **实时进化**（分钟级全参数更新）。
+> 用 Rust 从零构建的工业级异构 AI 引擎。
+>
+> **四大核心愿景：**
+> - **算力平权（The "Hadoop" of AI）**：通过普通以太网连接廉价机器，实现大模型分布式训练与部署
+> - **打破垄断（Hardware Agnosticism）**：极致干净的 HAL，任何异构芯片（NPU/Tank 9k）即插即用
+> - **实时进化（Live Evolution）**：分钟级全参数更新，模型在线持续学习，不再是"训完即冻结"
+> - **垂直闭环（End-to-End Vertical AI）**：开箱即用的 Text2SQL 数据分析服务，Rust 单二进制交付
 
 ---
 
@@ -9,14 +14,16 @@
 
 ```
 crates/
-  core-tensor/      Tensor 元信息、Shape、Stride、DType、Storage、autograd backward
+  core-tensor/      Tensor 元信息、Shape、Stride、DType(F32/F16/BF16)、Storage(Cpu/Device)、DeviceBuffer trait、autograd backward
   core-autograd/     计算图、反向调度（拓扑排序）
-  core-ops/          20+ 算子（前向+反向+数值梯度检查），tiled matmul
-  hal/               Hardware Abstraction Layer：Backend + KernelProvider trait
-  nn/                Module trait、Linear、Embedding、LayerNorm、MHA、TransformerBlock、GPT、生成采样
+  core-ops/          20+ 算子（前向+反向+数值梯度检查），dispatch matmul
+  hal/               Hardware Abstraction Layer：Backend + KernelProvider(20个算子接口) + CpuBackend
+  hal-ffi/           C FFI 外部硬件接入桥接（libloading 动态加载 + sptorch_hal.h 标准接口）
+  mock-npu/          Mock NPU cdylib（验证 FFI 全链路）
+  nn/                Module trait、Linear、LoRALinear、Embedding、LayerNorm、MHA、TransformerBlock、GPT、TokenTrie、受限解码
   optim/             SGD、AdamW、CosineScheduler、clip_grad_norm、NaN/Inf 守卫
-  data/              CharTokenizer、TextDataset、DataLoader（shuffle+reset）
-  serialize/         Checkpoint 二进制保存/加载
+  data/              CharTokenizer、BPE Tokenizer、TextDataset、DataLoader（shuffle+reset）
+  serialize/         Checkpoint 二进制保存/加载 + safetensors 格式解析（F32/F16/BF16）
   runtime-cuda/      CUDA 后端：nvrtc 编译 kernel + cuBLAS matmul + SGD update
   cli-train/         CPU MiniGPT 训练入口（Transformer，autograd 反向传播）
   cli-train-gpu/     GPU 训练入口（Attention 模型，手动反向传播）
@@ -26,15 +33,17 @@ crates/
 
 | crate | 测试数 | 说明 |
 |-------|--------|------|
+| core-tensor | 8 | F16/BF16 转换、Tensor dtype/half/bfloat16/float 接口 |
 | core-ops | 55 | 所有算子前向+反向+grad check |
-| nn | 14 | Linear/Embedding/LayerNorm/MHA/TransformerBlock/GPT forward+backward |
+| nn | 22 | Linear/LoRA/Embedding/LayerNorm/MHA/TransformerBlock/GPT/TokenTrie/受限解码 |
 | optim | 10 | SGD/AdamW/clip/zero_grad/NaN guard/CosineScheduler |
-| data | 6 | Tokenizer/Dataset/DataLoader |
+| data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
 | runtime-cuda | 12 | GPU add/mul/neg/scale/exp/log/gelu/relu/matmul + CPU 对比 |
-| serialize | 2 | checkpoint roundtrip + shape mismatch |
+| serialize | 7 | checkpoint roundtrip + shape mismatch + safetensors(F32/F16/BF16/load_into) |
 | core-autograd | 3 | 基础 autograd |
-| hal | 4 | Backend trait |
-| **合计** | **106** | **全部通过** |
+| hal | 15 | Backend trait + KernelProvider 20个算子(add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/softmax/sgd/embedding/masked_fill/broadcast_add) |
+| hal-ffi | 10 | FFI 全链路集成测试(mock NPU: add/mul/neg/scale/relu/matmul/softmax/exp_log/upload_download) |
+| **合计** | **152** | **全部通过** |
 
 ---
 
@@ -72,19 +81,51 @@ crates/
 - P3.5 显存优化：待实现（AMP、梯度检查点、梯度累积）
 - P3.6 性能工程：待实现（纯 GPU softmax/LN kernel、算子融合、CUDA stream）
 
-### P4：分布式训练 ⏳ 未开始
+### P4：彻底的硬件解耦 (The Abstraction Layer) ✅ 已完成 —— 支撑愿景 2
 
-- 单机多卡 DataParallel（NCCL AllReduce）
-- Pipeline / Tensor Parallelism
+*Storage 重构为 Opaque Handle 枚举态，HAL 扩展到 20+ 核心算子，C FFI 外部硬件接入全链路验证通过。*
 
-### P5：实时进化引擎 ⏳ 未开始
+- [x] **重构 Storage 模型**：`Storage` 从 `struct { data: Vec<f32> }` 改为 `enum { Cpu(Vec<f32>), Device(Box<dyn DeviceBuffer>) }`，计算图与物理内存彻底分离
+- [x] **完善 HAL 接口 (Backend Trait)**：`KernelProvider` 从 3 个方法扩展到 20 个（add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/sum/softmax/masked_fill/broadcast_add/embedding/sgd/adam），CpuBackend 全部实现并测试
+- [x] **C FFI 与外部硬件接入模板**：`hal-ffi` crate + `sptorch_hal.h` C 头文件 + `mock-npu` cdylib 验证全链路（10 个集成测试通过）
+- [x] **Device 枚举扩展**：`Device::CPU | Cuda(usize) | Custom(u16)`，支持异构设备标识
 
-- 双缓冲参数架构（训练-推理共存）
-- 增量训练调度器
-- 灾难性遗忘缓解（EWC + 经验回放 + 知识蒸馏）
-- 在线数据管道、监控与自动回滚
+### P5：轻量级微调与受限生成 (SFT & Generation) ✅ 已完成 —— 支撑愿景 3
 
-### P6：工程成熟度 ⏳ 持续
+*为了 Text2SQL 业务，需要支持加载预训练权重和低成本微调。*
+
+- [x] **标准权重格式支持**：实现对 HuggingFace `safetensors` 格式的解析与加载（F32/F16/BF16 自动转换）
+- [x] **LoRA (Low-Rank Adaptation) 机制**：`LoRALinear` 冻结主干 + 低秩矩阵训练，支持 merge 回主权重，5 个测试覆盖（shape/trainable/identity/backward/merge）
+- [x] **混合精度运算 (AMP)**：F16/BF16 转换工具 + `Tensor::half()/bfloat16()/float()/to_dtype()` 接口，8 个测试覆盖
+- [x] **受限解码器 (Constrained Decoder)**：`TokenTrie` 前缀树 + `TokenConstraint` trait 接口，`generate_constrained` 强制模型只生成合法 token 序列
+
+### P6：分布式引擎与容错 (The Distributed Engine) ⏳ 未开始 —— 支撑愿景 1
+
+*实现廉价集群的高可用通信。*
+
+- [ ] **异步网络层集成**：引入 `tokio` 和 `tonic` (gRPC)，实现节点间的基本心跳和异步 RPC 调用
+- [ ] **分布式切分 (ZeRO-1/2 基础)**：实现 Ring-AllReduce 算法，支持两台机器通过以太网共享 AdamW 优化器的显存压力
+- [ ] **高可用 Checkpoint**：实现分布式的异步模型权重保存与断点续训能力
+
+### P7：实时进化引擎 (Live Evolution) ⏳ 未开始 —— 支撑愿景 4
+
+*模型不再"训完即冻结"，而是在线持续学习，分钟级全参数更新。*
+
+- [ ] **双缓冲参数架构**：训练-推理共存，前台用旧权重推理，后台异步更新新权重，原子切换
+- [ ] **增量训练调度器**：基于数据流的触发式训练，新数据到达即启动微批次更新
+- [ ] **灾难性遗忘缓解**：EWC（弹性权重巩固）+ 经验回放 + 知识蒸馏，防止新知识覆盖旧知识
+- [ ] **在线数据管道与监控**：流式数据接入、loss/指标监控、自动回滚（检测到退化时回退权重）
+
+### P8：Text2SQL 一体化业务部署 (The Product) ⏳ 未开始 —— 支撑愿景 3
+
+*完成数据分析产品的闭环。*
+
+- [ ] **内嵌 Web Server**：集成 `axum`，对外暴露 RESTful API
+- [ ] **数据库连接器集成**：集成 `sqlx`，允许框架直接连接 MySQL/PostgreSQL 抓取 Schema 并执行生成的 SQL
+- [ ] **RAG (检索增强) 预处理管道**：在模型前向传播前，集成文本检索模块，组装包含表结构的 Prompt
+- [ ] **单二进制交付**：利用 Rust 静态编译，将 DL 框架 + HTTP 服务 + DB 连接器打包为几十 MB 的零依赖二进制文件
+
+### PX：工程成熟度 ⏳ 持续
 
 - CI/CD、文档、新后端扩展（ROCm/Metal/WebGPU）
 
@@ -400,11 +441,11 @@ crates/
 
 ## 下一步优先级
 
-1. **autograd 支持 GPU tensor**：让 core-tensor 的 Storage 支持 GPU 内存，autograd 自动调度 GPU kernel。这样 nn::GPT 可以直接在 GPU 上训练，不需要手动 backward。
-2. **纯 GPU softmax/LayerNorm kernel**：消除 host↔device 传输瓶颈，预计可提速 2-3×。
-3. **GPU AdamW**：在 GPU 上维护 m/v 状态，比 SGD 收敛更快。
-4. **BPE tokenizer**：提升生成质量的关键，从字符级（31 vocab）升级到子词级（~1000 vocab）。
-5. **混合精度训练（AMP）**：FP16 前向 + FP32 master weights，显存减半，速度翻倍。
+1. **P6.1 异步网络层**：引入 `tokio` + `tonic` (gRPC)，实现节点间心跳和异步 RPC 调用。这是分布式引擎的通信基础。
+2. **P6.2 Ring-AllReduce**：实现梯度同步算法，支持两台机器通过以太网共享 AdamW 优化器的显存压力。
+3. **P6.3 分布式 Checkpoint**：异步模型权重保存与断点续训，高可用保障。
+4. **P7.1 双缓冲参数架构**：训练-推理共存，为实时进化引擎打基础。
+5. **P8.1 内嵌 Web Server**：集成 `axum`，对外暴露 RESTful API，Text2SQL 产品入口。
 
 ---
 
