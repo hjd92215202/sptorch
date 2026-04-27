@@ -9,3 +9,4 @@ cuda = ["runtime-cuda"]
 [dependencies]
 core-tensor = { path = "../core-tensor" }
 runtime-cuda = { path = "../runtime-cuda", optional = true }
+matrixmultiply = "0.3"

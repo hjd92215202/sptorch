@@ -39,22 +39,16 @@ const TILE: usize = 32;
 
 fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     let mut c = vec![0.0f32; m * n];
-    for ii in (0..m).step_by(TILE) {
-        for pp in (0..k).step_by(TILE) {
-            for jj in (0..n).step_by(TILE) {
-                let i_end = (ii + TILE).min(m);
-                let p_end = (pp + TILE).min(k);
-                let j_end = (jj + TILE).min(n);
-                for i in ii..i_end {
-                    for p in pp..p_end {
-                        let a_val = a[i * k + p];
-                        for j in jj..j_end {
-                            c[i * n + j] += a_val * b[p * n + j];
-                        }
-                    }
-                }
-            }
-        }
+    // Use matrixmultiply crate for high-performance GEMM
+    unsafe {
+        matrixmultiply::sgemm(
+            m, k, n,
+            1.0,
+            a.as_ptr(), k as isize, 1,
+            b.as_ptr(), n as isize, 1,
+            0.0,
+            c.as_mut_ptr(), n as isize, 1,
+        );
     }
     c
 }
