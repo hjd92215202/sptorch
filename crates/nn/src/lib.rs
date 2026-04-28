@@ -1,3 +1,10 @@
+//! Neural network modules for sptorch.
+//!
+//! - `Module` trait, `Linear`, `LoRALinear` (low-rank adaptation)
+//! - `Embedding`, `LayerNorm`, `MultiHeadAttention`, `TransformerBlock`, `GPT`
+//! - `TokenTrie` + `TokenConstraint` for constrained decoding
+//! - `generate_greedy`, `generate_with_sampling`, `generate_constrained`
+
 use core_tensor::Tensor;
 use core_ops::*;
 use rand::Rng;

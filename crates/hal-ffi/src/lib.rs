@@ -1,3 +1,9 @@
+//! C FFI bridge for external hardware backends.
+//!
+//! Loads a shared library (.dll/.so) at runtime via `libloading`,
+//! wrapping its `sptorch_*` C symbols into a `KernelProvider` implementation.
+//! See `include/sptorch_hal.h` for the C API that vendors must implement.
+
 use core_tensor::Device;
 use hal::{Backend, DeviceId, HalError, HalResult, KernelProvider, RawBuffer};
 use libloading::{Library, Symbol};

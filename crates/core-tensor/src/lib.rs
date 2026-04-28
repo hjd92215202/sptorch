@@ -1,3 +1,12 @@
+//! Core tensor library for sptorch.
+//!
+//! Provides the fundamental `Tensor` type with:
+//! - Multi-device storage (`Storage::Cpu` / `Storage::Device` for GPU/NPU)
+//! - Shape, strides, offset for non-contiguous views
+//! - DType support (F32/F16/BF16) with conversion utilities
+//! - Autograd backward (iterative topological sort)
+//! - Global backend registry for device-aware compute dispatch
+
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::fmt;

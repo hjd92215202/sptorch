@@ -1,3 +1,9 @@
+//! Hardware Abstraction Layer for sptorch.
+//!
+//! Defines `Backend` and `KernelProvider` traits (20 kernel methods).
+//! Any hardware (CPU, GPU, NPU) implements these traits to be plugged in.
+//! Includes `CpuBackend` as the reference implementation.
+
 use core_tensor::DType;
 use std::fmt;
 

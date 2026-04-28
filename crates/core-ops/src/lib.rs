@@ -1,3 +1,10 @@
+//! Differentiable operators for sptorch.
+//!
+//! 20+ ops with forward + backward + backend dispatch:
+//! add, mul, neg, sub, sum, mean, matmul, exp, log, reshape, transpose,
+//! softmax, log_softmax, cross_entropy_loss, embedding_lookup, relu, gelu,
+//! scale, masked_fill, batch_matmul, broadcast_add, concat.
+
 use core_tensor::{Tensor, Op, Node, Device, get_backend};
 use std::sync::Arc;
 
