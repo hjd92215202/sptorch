@@ -57,7 +57,7 @@ impl core_tensor::DeviceBuffer for FfiDeviceBuffer {
         host
     }
 
-    fn from_host(data: &[f32], _device: Device) -> std::result::Result<Box<dyn core_tensor::DeviceBuffer>, String> {
+    fn from_host(_data: &[f32], _device: Device) -> std::result::Result<Box<dyn core_tensor::DeviceBuffer>, String> {
         Err("FfiDeviceBuffer::from_host requires a backend reference; use FfiBackend::upload() instead".into())
     }
 }

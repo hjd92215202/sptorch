@@ -1,12 +1,11 @@
 use core_tensor::Tensor;
-use core_ops::{cross_entropy_loss, sum};
 use optim::Optimizer;
 
 /// Incremental training scheduler: triggers micro-batch updates
 /// when new data arrives, instead of full epoch-based training.
 pub struct IncrementalTrainer<O: Optimizer> {
     optimizer: O,
-    params: Vec<Tensor>,
+    _params: Vec<Tensor>,
     micro_batch_size: usize,
     buffer: Vec<(Vec<usize>, Vec<usize>)>, // (input_ids, target_ids)
     total_steps: u64,
@@ -16,7 +15,7 @@ impl<O: Optimizer> IncrementalTrainer<O> {
     pub fn new(optimizer: O, params: Vec<Tensor>, micro_batch_size: usize) -> Self {
         IncrementalTrainer {
             optimizer,
-            params,
+            _params: params,
             micro_batch_size,
             buffer: Vec::new(),
             total_steps: 0,

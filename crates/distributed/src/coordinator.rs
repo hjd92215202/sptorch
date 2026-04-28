@@ -47,7 +47,7 @@ impl CoordinatorService {
 impl NodeService for CoordinatorService {
     async fn heartbeat(
         &self,
-        request: Request<HeartbeatRequest>,
+        _request: Request<HeartbeatRequest>,
     ) -> Result<Response<HeartbeatResponse>, Status> {
         let state = self.state.lock().await;
         Ok(Response::new(HeartbeatResponse {

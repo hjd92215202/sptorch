@@ -63,7 +63,7 @@ mod gpu_accel {
 
 // ============ Tiled Matmul (cache-friendly CPU fallback) ============
 
-const TILE: usize = 32;
+const _TILE: usize = 32;
 
 fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     let mut c = vec![0.0f32; m * n];
@@ -83,7 +83,7 @@ fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> 
 
 // Helper: matmul dispatch (GPU if available and matrix large enough, else CPU tiled)
 // GPU offload only worthwhile when matrix is large enough to amortize transfer cost
-const GPU_MATMUL_THRESHOLD: usize = 128 * 128;
+const _GPU_MATMUL_THRESHOLD: usize = 128 * 128;
 
 fn dispatch_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     #[cfg(feature = "cuda")]
@@ -1126,7 +1126,7 @@ impl Op for BroadcastAddOp {
 
         // dB = sum over broadcast dims
         let b_numel: usize = self.b_shape.iter().product();
-        let repeats = g.len() / b_numel;
+        let _repeats = g.len() / b_numel;
         let mut db_data = vec![0.0f32; b_numel];
         for i in 0..g.len() {
             db_data[i % b_numel] += g[i];
