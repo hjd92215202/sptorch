@@ -27,6 +27,7 @@ crates/
   runtime-cuda/      CUDA 后端：nvrtc 编译 kernel + cuBLAS matmul + SGD update
   distributed/       分布式引擎：gRPC coordinator/worker + AllReduce + Barrier
   live-evolution/    实时进化：双缓冲参数 + 增量训练 + EWC遗忘缓解 + 在线监控/自动回滚
+  text2sql/          Text2SQL产品：axum API + sqlx Schema抓取 + RAG prompt + SQL约束生成
   cli-train/         CPU MiniGPT 训练入口（Transformer，autograd 反向传播）
   cli-train-gpu/     GPU 训练入口（Attention 模型，手动反向传播）
 ```
@@ -448,11 +449,11 @@ crates/
 
 ## 下一步优先级
 
-1. **P6.1 异步网络层**：引入 `tokio` + `tonic` (gRPC)，实现节点间心跳和异步 RPC 调用。这是分布式引擎的通信基础。
-2. **P6.2 Ring-AllReduce**：实现梯度同步算法，支持两台机器通过以太网共享 AdamW 优化器的显存压力。
-3. **P6.3 分布式 Checkpoint**：异步模型权重保存与断点续训，高可用保障。
-4. **P7.1 双缓冲参数架构**：训练-推理共存，为实时进化引擎打基础。
-5. **P8.1 内嵌 Web Server**：集成 `axum`，对外暴露 RESTful API，Text2SQL 产品入口。
+1. **端到端集成验证**：用 text2sql crate 搭建一个完整 demo（SQLite + 小模型 + axum），验证"自然语言→SQL→执行→返回结果"全链路
+2. **autograd 支持 GPU tensor**：让 Storage::Device 参与 autograd 计算图，消除手动 backward 的需要
+3. **真实 LoRA 微调实验**：加载一个小型预训练模型（safetensors），用 LoRA 在 Text2SQL 数据集上微调，验证 loss 下降
+4. **分布式训练实战**：两台机器通过 distributed crate 跑一个真实的 AllReduce 训练 loop
+5. **release 构建优化**：`cargo build --release` 验证单二进制体积，strip + LTO 压缩到目标 50MB 以内
 
 ---
 
