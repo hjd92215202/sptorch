@@ -131,7 +131,7 @@ crates/
 - [x] **数据库连接器集成**：`sqlx` SQLite schema 抓取（`fetch_sqlite_schema`），DDL 生成
 - [x] **RAG 预处理管道**：`build_prompt` 注入表结构，`rank_tables` 关键词相关性排序，`select_relevant_schemas` top-k 过滤
 - [x] **SQL 约束生成**：`build_sql_vocabulary` 白名单词表，`generate_sql_stub` 模板匹配（COUNT/AVG/SUM/MAX/SELECT *）
-- [ ] **单二进制交付**：Rust 静态编译打包（后续迭代优化体积）
+- [x] **单二进制交付**：release 构建 `sptorch-text2sql.exe` 仅 3.9MB（DL框架+HTTP服务+DB连接器），远低于 50MB 目标
 
 ### PX：工程成熟度 ⏳ 持续
 
