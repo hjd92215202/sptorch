@@ -7,3 +7,6 @@ edition = "2021"
 core-tensor = { path = "../core-tensor" }
 core-ops = { path = "../core-ops" }
 rand = "0.8"
+
+[dev-dependencies]
+optim = { path = "../optim" }

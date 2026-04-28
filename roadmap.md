@@ -38,7 +38,7 @@ crates/
 |-------|--------|------|
 | core-tensor | 8 | F16/BF16 转换、Tensor dtype/half/bfloat16/float 接口 |
 | core-ops | 55 | 所有算子前向+反向+grad check |
-| nn | 22 | Linear/LoRA/Embedding/LayerNorm/MHA/TransformerBlock/GPT/TokenTrie/受限解码 |
+| nn | 22+1 | Linear/LoRA/Embedding/LayerNorm/MHA/TransformerBlock/GPT/TokenTrie/受限解码 + LoRA微调端到端 |
 | optim | 10 | SGD/AdamW/clip/zero_grad/NaN guard/CosineScheduler |
 | data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
 | runtime-cuda | 12 | GPU add/mul/neg/scale/exp/log/gelu/relu/matmul + CPU 对比 |
@@ -49,7 +49,7 @@ crates/
 | distributed | 6 | allreduce本地工具 + gRPC集成(coordinator+2worker注册/心跳/allreduce/barrier) |
 | live-evolution | 14 | 双缓冲参数(swap/sync) + 增量训练(buffering/step) + EWC(penalty/grads/fisher) + 监控(rollback/reset) |
 | text2sql | 11 | schema DDL生成 + RAG prompt/rank/select + SQL约束生成(count/avg/sum/max/fallback) + SQLite集成 |
-| **合计** | **183** | **全部通过** |
+| **合计** | **185** | **全部通过** |
 
 ---
 
@@ -464,6 +464,19 @@ crates/
 | 结果 | 4/4 正确，延迟 <1ms |
 
 **经验**：模板匹配作为 baseline 已能覆盖常见聚合查询。复杂 JOIN/子查询需要神经模型 + 受限解码（TokenTrie）。
+
+### 实验 9：LoRA 微调端到端验证（P5 验收）
+
+| 配置 | 值 |
+|------|-----|
+| 模型 | 2层 Linear(4→8→3) + LoRA(rank=2, alpha=1.0) |
+| 可训练参数 | 4 个 LoRA 矩阵（lora_a + lora_b × 2层），基座冻结 |
+| 数据 | 4 个合成样本，3 分类 |
+| 超参 | lr=0.05, SGD, 30 步 |
+| 结果 | loss 稳步下降，LoRA 微调有效 |
+| merge | LoRA B 训练后可 merge 回基座权重 |
+
+**经验**：LoRA 在极小数据集上也能有效降低 loss。B 初始化为零保证了训练开始时 LoRA 不改变模型行为（identity start）。
 
 ---
 
