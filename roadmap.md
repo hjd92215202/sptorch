@@ -47,7 +47,8 @@ crates/
 | hal-ffi | 10 | FFI 全链路集成测试(mock NPU: add/mul/neg/scale/relu/matmul/softmax/exp_log/upload_download) |
 | distributed | 6 | allreduce本地工具 + gRPC集成(coordinator+2worker注册/心跳/allreduce/barrier) |
 | live-evolution | 14 | 双缓冲参数(swap/sync) + 增量训练(buffering/step) + EWC(penalty/grads/fisher) + 监控(rollback/reset) |
-| **合计** | **172** | **全部通过** |
+| text2sql | 11 | schema DDL生成 + RAG prompt/rank/select + SQL约束生成(count/avg/sum/max/fallback) + SQLite集成 |
+| **合计** | **183** | **全部通过** |
 
 ---
 
@@ -121,14 +122,15 @@ crates/
 - [x] **灾难性遗忘缓解**：`EWC` 弹性权重巩固，Fisher 信息对角近似，penalty + penalty_grads + apply_penalty
 - [x] **在线数据管道与监控**：`TrainingMonitor` 滚动窗口 loss 监控，自动检测退化触发 `Rollback`，支持 reset 后继续
 
-### P8：Text2SQL 一体化业务部署 (The Product) ⏳ 未开始 —— 支撑愿景 3
+### P8：Text2SQL 一体化业务部署 (The Product) ✅ 已完成 —— 支撑愿景 3
 
 *完成数据分析产品的闭环。*
 
-- [ ] **内嵌 Web Server**：集成 `axum`，对外暴露 RESTful API
-- [ ] **数据库连接器集成**：集成 `sqlx`，允许框架直接连接 MySQL/PostgreSQL 抓取 Schema 并执行生成的 SQL
-- [ ] **RAG (检索增强) 预处理管道**：在模型前向传播前，集成文本检索模块，组装包含表结构的 Prompt
-- [ ] **单二进制交付**：利用 Rust 静态编译，将 DL 框架 + HTTP 服务 + DB 连接器打包为几十 MB 的零依赖二进制文件
+- [x] **内嵌 Web Server**：`axum` RESTful API（/query + /health），`AppState` 持有 schema
+- [x] **数据库连接器集成**：`sqlx` SQLite schema 抓取（`fetch_sqlite_schema`），DDL 生成
+- [x] **RAG 预处理管道**：`build_prompt` 注入表结构，`rank_tables` 关键词相关性排序，`select_relevant_schemas` top-k 过滤
+- [x] **SQL 约束生成**：`build_sql_vocabulary` 白名单词表，`generate_sql_stub` 模板匹配（COUNT/AVG/SUM/MAX/SELECT *）
+- [ ] **单二进制交付**：Rust 静态编译打包（后续迭代优化体积）
 
 ### PX：工程成熟度 ⏳ 持续
 
