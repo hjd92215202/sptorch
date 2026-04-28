@@ -37,7 +37,7 @@ crates/
 | crate | 测试数 | 说明 |
 |-------|--------|------|
 | core-tensor | 8 | F16/BF16 转换、Tensor dtype/half/bfloat16/float 接口 |
-| core-ops | 55 | 所有算子前向+反向+grad check |
+| core-ops | 56 | 所有算子前向+反向+grad check + backend dispatch验证 |
 | nn | 22+1 | Linear/LoRA/Embedding/LayerNorm/MHA/TransformerBlock/GPT/TokenTrie/受限解码 + LoRA微调端到端 |
 | optim | 10 | SGD/AdamW/clip/zero_grad/NaN guard/CosineScheduler |
 | data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
@@ -46,10 +46,10 @@ crates/
 | core-autograd | 3 | 基础 autograd |
 | hal | 15 | Backend trait + KernelProvider 20个算子(add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/softmax/sgd/embedding/masked_fill/broadcast_add) |
 | hal-ffi | 10 | FFI 全链路集成测试(mock NPU: add/mul/neg/scale/relu/matmul/softmax/exp_log/upload_download) |
-| distributed | 6 | allreduce本地工具 + gRPC集成(coordinator+2worker注册/心跳/allreduce/barrier) |
-| live-evolution | 14 | 双缓冲参数(swap/sync) + 增量训练(buffering/step) + EWC(penalty/grads/fisher) + 监控(rollback/reset) |
+| distributed | 7 | allreduce本地工具 + gRPC集成(注册/心跳/allreduce/barrier) + 多步训练loop |
+| live-evolution | 16 | 双缓冲(swap/sync) + 增量训练 + EWC + 监控 + 端到端联动(正常/rollback) |
 | text2sql | 11 | schema DDL生成 + RAG prompt/rank/select + SQL约束生成(count/avg/sum/max/fallback) + SQLite集成 |
-| **合计** | **185** | **全部通过** |
+| **合计** | **188** | **全部通过** |
 
 ---
 
