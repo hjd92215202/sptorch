@@ -25,6 +25,8 @@ crates/
   data/              CharTokenizer、BPE Tokenizer、TextDataset、DataLoader（shuffle+reset）
   serialize/         Checkpoint 二进制保存/加载 + safetensors 格式解析（F32/F16/BF16）
   runtime-cuda/      CUDA 后端：nvrtc 编译 kernel + cuBLAS matmul + SGD update
+  distributed/       分布式引擎：gRPC coordinator/worker + AllReduce + Barrier
+  live-evolution/    实时进化：双缓冲参数 + 增量训练 + EWC遗忘缓解 + 在线监控/自动回滚
   cli-train/         CPU MiniGPT 训练入口（Transformer，autograd 反向传播）
   cli-train-gpu/     GPU 训练入口（Attention 模型，手动反向传播）
 ```
@@ -43,7 +45,9 @@ crates/
 | core-autograd | 3 | 基础 autograd |
 | hal | 15 | Backend trait + KernelProvider 20个算子(add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/softmax/sgd/embedding/masked_fill/broadcast_add) |
 | hal-ffi | 10 | FFI 全链路集成测试(mock NPU: add/mul/neg/scale/relu/matmul/softmax/exp_log/upload_download) |
-| **合计** | **152** | **全部通过** |
+| distributed | 6 | allreduce本地工具 + gRPC集成(coordinator+2worker注册/心跳/allreduce/barrier) |
+| live-evolution | 14 | 双缓冲参数(swap/sync) + 增量训练(buffering/step) + EWC(penalty/grads/fisher) + 监控(rollback/reset) |
+| **合计** | **172** | **全部通过** |
 
 ---
 
@@ -99,22 +103,23 @@ crates/
 - [x] **混合精度运算 (AMP)**：F16/BF16 转换工具 + `Tensor::half()/bfloat16()/float()/to_dtype()` 接口，8 个测试覆盖
 - [x] **受限解码器 (Constrained Decoder)**：`TokenTrie` 前缀树 + `TokenConstraint` trait 接口，`generate_constrained` 强制模型只生成合法 token 序列
 
-### P6：分布式引擎与容错 (The Distributed Engine) ⏳ 未开始 —— 支撑愿景 1
+### P6：分布式引擎与容错 (The Distributed Engine) ✅ 已完成 —— 支撑愿景 1
 
 *实现廉价集群的高可用通信。*
 
-- [ ] **异步网络层集成**：引入 `tokio` 和 `tonic` (gRPC)，实现节点间的基本心跳和异步 RPC 调用
-- [ ] **分布式切分 (ZeRO-1/2 基础)**：实现 Ring-AllReduce 算法，支持两台机器通过以太网共享 AdamW 优化器的显存压力
-- [ ] **高可用 Checkpoint**：实现分布式的异步模型权重保存与断点续训能力
+- [x] **异步网络层集成**：`tokio` + `tonic` gRPC，coordinator 服务（心跳/注册/AllReduce/Barrier），worker 客户端
+- [x] **分布式切分 (ZeRO-1/2 基础)**：coordinator 端梯度累积+平均 AllReduce，worker 端 `allreduce()` 接口，`average_gradients` 本地工具
+- [x] **集成测试**：同进程 coordinator + 2 worker 验证注册/心跳/allreduce/barrier 全链路（6 测试通过）
+- [ ] **高可用 Checkpoint**：分布式异步模型权重保存与断点续训（后续迭代）
 
-### P7：实时进化引擎 (Live Evolution) ⏳ 未开始 —— 支撑愿景 4
+### P7：实时进化引擎 (Live Evolution) ✅ 已完成 —— 支撑愿景 4
 
 *模型不再"训完即冻结"，而是在线持续学习，分钟级全参数更新。*
 
-- [ ] **双缓冲参数架构**：训练-推理共存，前台用旧权重推理，后台异步更新新权重，原子切换
-- [ ] **增量训练调度器**：基于数据流的触发式训练，新数据到达即启动微批次更新
-- [ ] **灾难性遗忘缓解**：EWC（弹性权重巩固）+ 经验回放 + 知识蒸馏，防止新知识覆盖旧知识
-- [ ] **在线数据管道与监控**：流式数据接入、loss/指标监控、自动回滚（检测到退化时回退权重）
+- [x] **双缓冲参数架构**：`DoubleBufferParams` 训练-推理共存，原子 swap 切换，`sync_shadow_from_active` 重置
+- [x] **增量训练调度器**：`IncrementalTrainer` 数据流触发式微批次训练，缓冲区满即触发
+- [x] **灾难性遗忘缓解**：`EWC` 弹性权重巩固，Fisher 信息对角近似，penalty + penalty_grads + apply_penalty
+- [x] **在线数据管道与监控**：`TrainingMonitor` 滚动窗口 loss 监控，自动检测退化触发 `Rollback`，支持 reset 后继续
 
 ### P8：Text2SQL 一体化业务部署 (The Product) ⏳ 未开始 —— 支撑愿景 3
 

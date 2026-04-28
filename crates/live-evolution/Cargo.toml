@@ -1,0 +1,10 @@
+[package]
+name = "live-evolution"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+core-ops = { path = "../core-ops" }
+nn = { path = "../nn" }
+optim = { path = "../optim" }
