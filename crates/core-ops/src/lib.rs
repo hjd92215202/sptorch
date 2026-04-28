@@ -340,12 +340,15 @@ pub fn matmul(a: &Tensor, b: &Tensor) -> Tensor {
 
     let a_data = a.data();
     let b_data = b.data();
+    let device = a.device();
 
-    #[cfg(feature = "cuda")]
-    let res_data = dispatch_matmul(&a_data, &b_data, m, k, n);
-
-    #[cfg(not(feature = "cuda"))]
-    let res_data = dispatch_matmul(&a_data, &b_data, m, k, n);
+    let res_data = if let Some(backend) = get_backend(&device) {
+        let mut out = vec![0.0f32; m * n];
+        backend.matmul_f32(&a_data, &b_data, &mut out, m, k, n);
+        out
+    } else {
+        dispatch_matmul(&a_data, &b_data, m, k, n)
+    };
 
     let res = Tensor::new(res_data, vec![m, n]);
 
@@ -384,7 +387,10 @@ impl Op for ExpOp {
 pub fn exp(a: &Tensor) -> Tensor {
     let a_data = a.data();
     let shape = a.shape();
-    let res_data: Vec<f32> = a_data.iter().map(|x| x.exp()).collect();
+    let device = a.device();
+    let res_data = dispatch_unary(&a_data, &device,
+        |a| a.iter().map(|x| x.exp()).collect(),
+        |backend, a, out| backend.exp_f32(a, out));
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
@@ -419,7 +425,10 @@ impl Op for LogOp {
 pub fn log(a: &Tensor) -> Tensor {
     let a_data = a.data();
     let shape = a.shape();
-    let res_data: Vec<f32> = a_data.iter().map(|x| x.ln()).collect();
+    let device = a.device();
+    let res_data = dispatch_unary(&a_data, &device,
+        |a| a.iter().map(|x| x.ln()).collect(),
+        |backend, a, out| backend.log_f32(a, out));
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
@@ -856,8 +865,11 @@ impl Op for ReluOp {
 pub fn relu(a: &Tensor) -> Tensor {
     let data = a.contiguous_data();
     let shape = a.shape();
+    let device = a.device();
     let mask: Vec<bool> = data.iter().map(|x| *x > 0.0).collect();
-    let out: Vec<f32> = data.iter().map(|x| x.max(0.0)).collect();
+    let out = dispatch_unary(&data, &device,
+        |a| a.iter().map(|x| x.max(0.0)).collect(),
+        |backend, a, o| backend.relu_f32(a, o));
     let res = Tensor::new(out, shape);
 
     if a.requires_grad() {
@@ -900,10 +912,13 @@ impl Op for GeluOp {
 pub fn gelu(a: &Tensor) -> Tensor {
     let data = a.contiguous_data();
     let shape = a.shape();
-    let sqrt_2_pi: f32 = (2.0 / std::f32::consts::PI).sqrt();
-    let out: Vec<f32> = data.iter().map(|&x| {
-        0.5 * x * (1.0 + (sqrt_2_pi * (x + 0.044715 * x.powi(3))).tanh())
-    }).collect();
+    let device = a.device();
+    let out = dispatch_unary(&data, &device,
+        |a| {
+            let sqrt_2_pi: f32 = (2.0 / std::f32::consts::PI).sqrt();
+            a.iter().map(|&x| 0.5 * x * (1.0 + (sqrt_2_pi * (x + 0.044715 * x.powi(3))).tanh())).collect()
+        },
+        |backend, a, o| backend.gelu_f32(a, o));
     let res = Tensor::new(out, shape);
 
     if a.requires_grad() {
@@ -936,7 +951,14 @@ impl Op for ScaleOp {
 pub fn scale(a: &Tensor, scalar: f32) -> Tensor {
     let data = a.contiguous_data();
     let shape = a.shape();
-    let out: Vec<f32> = data.iter().map(|x| x * scalar).collect();
+    let device = a.device();
+    let out = if let Some(backend) = get_backend(&device) {
+        let mut o = vec![0.0f32; data.len()];
+        backend.scale_f32(&data, scalar, &mut o);
+        o
+    } else {
+        data.iter().map(|x| x * scalar).collect()
+    };
     let res = Tensor::new(out, shape);
 
     if a.requires_grad() {
@@ -1849,5 +1871,67 @@ mod tests {
         loss.backward();
         assert_eq!(a.grad().unwrap(), vec![1.0, 1.0]);
         assert_eq!(b.grad().unwrap(), vec![1.0, 1.0, 1.0, 1.0]);
+    }
+
+    // --- Backend dispatch test ---
+
+    #[test]
+    fn test_backend_dispatch_custom() {
+        use core_tensor::{BackendDispatch, register_backend};
+        use std::sync::Arc;
+
+        struct DoubleBackend;
+        impl BackendDispatch for DoubleBackend {
+            fn add_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = (a[i] + b[i]) * 2.0; }
+            }
+            fn mul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = a[i] * b[i] * 2.0; }
+            }
+            fn neg_f32(&self, a: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = -a[i] * 2.0; }
+            }
+            fn exp_f32(&self, a: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = a[i].exp(); }
+            }
+            fn log_f32(&self, a: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = a[i].ln(); }
+            }
+            fn relu_f32(&self, a: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = if a[i] > 0.0 { a[i] } else { 0.0 }; }
+            }
+            fn gelu_f32(&self, a: &[f32], out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = a[i]; }
+            }
+            fn scale_f32(&self, a: &[f32], s: f32, out: &mut [f32]) {
+                for i in 0..out.len() { out[i] = a[i] * s; }
+            }
+            fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize) {
+                for i in 0..m {
+                    for j in 0..n {
+                        let mut s = 0.0f32;
+                        for p in 0..k { s += a[i*k+p] * b[p*n+j]; }
+                        out[i*n+j] = s;
+                    }
+                }
+            }
+        }
+
+        let dev = Device::Custom(99);
+        register_backend(dev, Arc::new(DoubleBackend));
+
+        let a = Tensor::new(vec![1.0, 2.0], vec![2]);
+        let b = Tensor::new(vec![3.0, 4.0], vec![2]);
+        a.0.write().unwrap().device = dev;
+        b.0.write().unwrap().device = dev;
+
+        let c = add(&a, &b);
+        assert_eq!(c.data(), vec![8.0, 12.0]);
+
+        let d = mul(&a, &b);
+        assert_eq!(d.data(), vec![6.0, 16.0]);
+
+        let e = neg(&a);
+        assert_eq!(e.data(), vec![-2.0, -4.0]);
     }
 }
