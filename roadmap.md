@@ -445,6 +445,26 @@ crates/
 
 7. **初始化很重要**：Xavier/Kaiming 初始化 + 较小的 scale (×0.5) 对训练稳定性有帮助。初始化太大会导致 softmax 饱和，梯度消失。
 
+8. **Text2SQL 端到端验证**：`sptorch-text2sql` demo 服务成功运行，自然语言→SQL 全链路通过。模板匹配阶段已能正确生成 COUNT/AVG/SUM/MAX 查询，RAG prompt 正确注入 DDL schema。下一步用神经模型替换模板匹配。
+
+---
+
+### 实验 8：Text2SQL 端到端 Demo（P8 验收）
+
+| 配置 | 值 |
+|------|-----|
+| 服务 | axum 0.7, 0.0.0.0:8080 |
+| Schema | 3 表 (employees/departments/sales), 12 列 |
+| 生成方式 | 模板匹配 (generate_sql_stub) |
+| RAG | 全表 DDL 注入 prompt |
+| 测试用例 | "How many employees?" → `SELECT COUNT(*) FROM employees;` |
+| | "average salary" → `SELECT AVG(salary) FROM employees;` |
+| | "total sales amount" → `SELECT SUM(amount) FROM sales;` |
+| | "highest budget in departments" → `SELECT MAX(budget) FROM departments;` |
+| 结果 | 4/4 正确，延迟 <1ms |
+
+**经验**：模板匹配作为 baseline 已能覆盖常见聚合查询。复杂 JOIN/子查询需要神经模型 + 受限解码（TokenTrie）。
+
 ---
 
 ## 下一步优先级
