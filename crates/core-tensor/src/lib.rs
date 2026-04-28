@@ -3,6 +3,40 @@ use std::sync::{Arc, RwLock};
 use std::fmt;
 use thiserror::Error;
 
+// ============ Global Backend Registry ============
+
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+/// Trait object for dispatching compute to registered backends.
+pub trait BackendDispatch: Send + Sync {
+    fn add_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]);
+    fn mul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]);
+    fn neg_f32(&self, a: &[f32], out: &mut [f32]);
+    fn exp_f32(&self, a: &[f32], out: &mut [f32]);
+    fn log_f32(&self, a: &[f32], out: &mut [f32]);
+    fn relu_f32(&self, a: &[f32], out: &mut [f32]);
+    fn gelu_f32(&self, a: &[f32], out: &mut [f32]);
+    fn scale_f32(&self, a: &[f32], scalar: f32, out: &mut [f32]);
+    fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize);
+}
+
+static BACKEND_REGISTRY: OnceLock<RwLock<HashMap<Device, Arc<dyn BackendDispatch>>>> = OnceLock::new();
+
+fn registry() -> &'static RwLock<HashMap<Device, Arc<dyn BackendDispatch>>> {
+    BACKEND_REGISTRY.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// Register a backend for a specific device.
+pub fn register_backend(device: Device, backend: Arc<dyn BackendDispatch>) {
+    registry().write().unwrap().insert(device, backend);
+}
+
+/// Get the registered backend for a device, if any.
+pub fn get_backend(device: &Device) -> Option<Arc<dyn BackendDispatch>> {
+    registry().read().unwrap().get(device).cloned()
+}
+
 #[derive(Error, Debug)]
 pub enum TensorError {
     #[error("shape mismatch: expected {expected:?}, got {got:?}")]
@@ -236,6 +270,10 @@ impl Tensor {
 
     pub fn numel(&self) -> usize {
         self.shape().iter().product()
+    }
+
+    pub fn device(&self) -> Device {
+        self.0.read().unwrap().device
     }
 
     pub fn dtype(&self) -> DType {

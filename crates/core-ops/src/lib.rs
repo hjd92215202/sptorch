@@ -1,5 +1,33 @@
-use core_tensor::{Tensor, Op, Node};
+use core_tensor::{Tensor, Op, Node, Device, get_backend};
 use std::sync::Arc;
+
+// ============ Backend-aware dispatch helper ============
+
+fn dispatch_binary(a_data: &[f32], b_data: &[f32], device: &Device,
+                   cpu_fn: impl Fn(&[f32], &[f32]) -> Vec<f32>,
+                   backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &[f32], &mut [f32]))
+                   -> Vec<f32> {
+    if let Some(backend) = get_backend(device) {
+        let mut out = vec![0.0f32; a_data.len()];
+        backend_fn(&*backend, a_data, b_data, &mut out);
+        out
+    } else {
+        cpu_fn(a_data, b_data)
+    }
+}
+
+fn dispatch_unary(a_data: &[f32], device: &Device,
+                  cpu_fn: impl Fn(&[f32]) -> Vec<f32>,
+                  backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &mut [f32]))
+                  -> Vec<f32> {
+    if let Some(backend) = get_backend(device) {
+        let mut out = vec![0.0f32; a_data.len()];
+        backend_fn(&*backend, a_data, &mut out);
+        out
+    } else {
+        cpu_fn(a_data)
+    }
+}
 
 // ============ GPU Accelerator (optional, via "cuda" feature) ============
 
@@ -84,8 +112,11 @@ pub fn add(a: &Tensor, b: &Tensor) -> Tensor {
     let a_data = a.data();
     let b_data = b.data();
     let shape = a.shape();
+    let device = a.device();
 
-    let res_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(x, y)| x + y).collect();
+    let res_data = dispatch_binary(&a_data, &b_data, &device,
+        |a, b| a.iter().zip(b.iter()).map(|(x, y)| x + y).collect(),
+        |backend, a, b, out| backend.add_f32(a, b, out));
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() || b.requires_grad() {
@@ -128,8 +159,11 @@ pub fn mul(a: &Tensor, b: &Tensor) -> Tensor {
     let a_data = a.data();
     let b_data = b.data();
     let shape = a.shape();
+    let device = a.device();
 
-    let res_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(x, y)| x * y).collect();
+    let res_data = dispatch_binary(&a_data, &b_data, &device,
+        |a, b| a.iter().zip(b.iter()).map(|(x, y)| x * y).collect(),
+        |backend, a, b, out| backend.mul_f32(a, b, out));
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() || b.requires_grad() {
@@ -162,8 +196,11 @@ impl Op for NegOp {
 pub fn neg(a: &Tensor) -> Tensor {
     let a_data = a.data();
     let shape = a.shape();
+    let device = a.device();
 
-    let res_data: Vec<f32> = a_data.iter().map(|x| -x).collect();
+    let res_data = dispatch_unary(&a_data, &device,
+        |a| a.iter().map(|x| -x).collect(),
+        |backend, a, out| backend.neg_f32(a, out));
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
