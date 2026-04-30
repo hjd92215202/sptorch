@@ -47,6 +47,50 @@ async fn health_handler() -> &'static str {
     "ok"
 }
 
+#[derive(Deserialize)]
+pub struct CorrectionRequest {
+    pub question: String,
+    pub wrong_sql: String,
+    pub correct_sql: String,
+}
+
+#[derive(Serialize)]
+pub struct CorrectionResponse {
+    pub accepted: bool,
+    pub message: String,
+}
+
+async fn correct_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CorrectionRequest>,
+) -> Json<CorrectionResponse> {
+    use crate::feedback::{Correction, FeedbackLoop};
+
+    if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
+        let mut fl = FeedbackLoop::new(0.02, 10);
+        fl.add_correction(Correction {
+            question: req.question.clone(),
+            wrong_sql: req.wrong_sql,
+            correct_sql: req.correct_sql.clone(),
+        });
+        match fl.apply_latest(model, tok) {
+            Some(loss) => Json(CorrectionResponse {
+                accepted: true,
+                message: format!("Learned from correction (loss={:.4})", loss),
+            }),
+            None => Json(CorrectionResponse {
+                accepted: false,
+                message: "Failed to apply correction".into(),
+            }),
+        }
+    } else {
+        Json(CorrectionResponse {
+            accepted: false,
+            message: "No neural model loaded, correction stored for future training".into(),
+        })
+    }
+}
+
 async fn ui_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     let tables_json = serde_json::to_string(&state.schema_info).unwrap_or_default();
     Html(format!(r#"<!DOCTYPE html>
@@ -127,6 +171,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", axum::routing::get(ui_handler))
         .route("/query", post(query_handler))
+        .route("/correct", post(correct_handler))
         .route("/health", axum::routing::get(health_handler))
         .with_state(state)
 }
