@@ -113,10 +113,10 @@ crates/
 | core-autograd | 3 | 基础 autograd |
 | hal | 15 | Backend trait + KernelProvider 20个算子(add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/softmax/sgd/embedding/masked_fill/broadcast_add) |
 | hal-ffi | 10 | FFI 全链路集成测试(mock NPU: add/mul/neg/scale/relu/matmul/softmax/exp_log/upload_download) |
-| distributed | 7 | allreduce本地工具 + gRPC集成(注册/心跳/allreduce/barrier) + 多步训练loop |
+| distributed | 12 | allreduce + gRPC集成 + 多步训练loop + DataParallel(scatter/allreduce/step) + Checkpoint(save/load/prune/resume) |
 | live-evolution | 16 | 双缓冲(swap/sync) + 增量训练 + EWC + 监控 + 端到端联动(正常/rollback) |
-| text2sql | 11 | schema DDL生成 + RAG prompt/rank/select + SQL约束生成(count/avg/sum/max/fallback) + SQLite集成 |
-| **合计** | **190** | **全部通过** |
+| text2sql | 19 | schema/RAG/SQL约束 + 训练数据/tokenizer + 神经GPT训练/生成 + 反馈环(add/apply) |
+| **合计** | **197** | **全部通过** |
 
 ---
 
