@@ -646,6 +646,8 @@ crates/
 
 9. **GPU Autograd 全链路验证**：`register_cuda_backend()` 后，`Device::Cuda(0)` 的 tensor 算子自动走 GPU kernel（add/mul/matmul via cuBLAS），backward 梯度正确。训练 step（forward + backward + SGD）端到端通过。
 
+10. **神经化 Text2SQL 全链路**：GPT(2层64维) + SGD 在 33 个合成 Text2SQL 样本上训练 100 步，loss 稳步下降。`generate_sql` 采样生成非空 SQL 输出。server 集成：有模型走 neural，无模型 fallback 模板匹配。
+
 ---
 
 ### 实验 8：Text2SQL 端到端 Demo（P8 验收）
