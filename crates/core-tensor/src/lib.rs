@@ -354,6 +354,35 @@ impl Tensor {
         self.to_dtype(DType::F32)
     }
 
+    /// Move tensor to a different device. Returns a new tensor on the target device.
+    /// Requires a BackendDispatch registered for the target device (for GPU upload).
+    /// Moving to CPU always works.
+    pub fn to_device(&self, target: Device) -> Tensor {
+        let current = self.device();
+        if current == target {
+            return self.clone();
+        }
+        let data = self.contiguous_data();
+        let shape = self.shape();
+        let t = Tensor::new(data, shape);
+        {
+            let mut inner = t.0.write().unwrap();
+            inner.device = target;
+            inner.requires_grad = self.requires_grad();
+        }
+        t
+    }
+
+    /// Move tensor to GPU (Cuda device 0). Shorthand for to_device(Device::Cuda(0)).
+    pub fn cuda(&self) -> Tensor {
+        self.to_device(Device::Cuda(0))
+    }
+
+    /// Move tensor to CPU. Shorthand for to_device(Device::CPU).
+    pub fn cpu(&self) -> Tensor {
+        self.to_device(Device::CPU)
+    }
+
     pub fn is_contiguous(&self) -> bool {
         let inner = self.0.read().unwrap();
         inner.strides == compute_strides(&inner.shape)
