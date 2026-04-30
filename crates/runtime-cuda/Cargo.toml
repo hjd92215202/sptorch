@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 core-tensor = { path = "../core-tensor" }
 cudarc = { version = "0.12", features = ["cublas", "nvrtc", "cuda-12040"] }
+
+[dev-dependencies]
+core-ops = { path = "../core-ops" }
