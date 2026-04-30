@@ -18,8 +18,8 @@ pub struct DoubleBufferParams {
 impl DoubleBufferParams {
     /// Create from an initial set of parameters. Clones them into both buffers.
     pub fn new(params: &[Tensor]) -> Self {
-        let buf_a: Vec<Tensor> = params.iter().map(|p| clone_tensor(p)).collect();
-        let buf_b: Vec<Tensor> = params.iter().map(|p| clone_tensor(p)).collect();
+        let buf_a: Vec<Tensor> = params.iter().map(clone_tensor).collect();
+        let buf_b: Vec<Tensor> = params.iter().map(clone_tensor).collect();
         DoubleBufferParams {
             buf_a,
             buf_b,
@@ -29,8 +29,8 @@ impl DoubleBufferParams {
     }
 
     /// Get a reference to the active (inference) parameters.
+    /// Note: caller must not hold this reference across a `swap()` call.
     pub fn active_params(&self) -> &[Tensor] {
-        let _guard = self.swap_lock.read().unwrap();
         if self.a_is_active.load(Ordering::Acquire) {
             &self.buf_a
         } else {
@@ -39,13 +39,24 @@ impl DoubleBufferParams {
     }
 
     /// Get a reference to the shadow (training) parameters.
+    /// Note: caller must not hold this reference across a `swap()` call.
     pub fn shadow_params(&self) -> &[Tensor] {
-        let _guard = self.swap_lock.read().unwrap();
         if self.a_is_active.load(Ordering::Acquire) {
             &self.buf_b
         } else {
             &self.buf_a
         }
+    }
+
+    /// Get a clone of the active parameters' data (safe across swap).
+    pub fn active_params_snapshot(&self) -> Vec<Vec<f32>> {
+        let _guard = self.swap_lock.read().unwrap();
+        let params = if self.a_is_active.load(Ordering::Acquire) {
+            &self.buf_a
+        } else {
+            &self.buf_b
+        };
+        params.iter().map(|p| p.contiguous_data()).collect()
     }
 
     /// Atomic swap: shadow becomes active, old active becomes new shadow.

@@ -89,7 +89,7 @@ fn main() {
             total_tokens += seq_len;
             step += 1;
 
-            if step % log_interval as u64 == 0 {
+            if step.is_multiple_of(log_interval as u64) {
                 let avg_loss = total_loss / log_interval as f32;
                 let elapsed = start.elapsed().as_secs_f32();
                 let tps = total_tokens as f32 / elapsed;

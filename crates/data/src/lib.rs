@@ -215,8 +215,8 @@ impl<'a, D: Dataset> DataLoader<'a, D> {
         }
     }
 
-    /// Returns (inputs, targets) where each is a flat Vec.
-    /// inputs: [batch_size * seq_len], targets: [batch_size * seq_len]
+    /// Returns (inputs, targets) where each is a Vec of sequences.
+    #[allow(clippy::type_complexity)]
     pub fn next_batch(&mut self) -> Option<(Vec<Vec<usize>>, Vec<Vec<usize>>)> {
         if self.pos >= self.indices.len() {
             return None;
@@ -238,7 +238,7 @@ impl<'a, D: Dataset> DataLoader<'a, D> {
     }
 
     pub fn num_batches(&self) -> usize {
-        (self.indices.len() + self.batch_size - 1) / self.batch_size
+        self.indices.len().div_ceil(self.batch_size)
     }
 }
 

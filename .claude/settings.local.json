@@ -10,7 +10,8 @@
       "Bash(cargo test *)",
       "Bash(cargo build *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(cargo clippy *)"
     ]
   }
 }

@@ -70,11 +70,10 @@ mod gpu_accel {
 
 // ============ Tiled Matmul (cache-friendly CPU fallback) ============
 
-const _TILE: usize = 32;
-
 fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
+    assert!(a.len() >= m * k, "matmul: a.len()={} but need m*k={}", a.len(), m * k);
+    assert!(b.len() >= k * n, "matmul: b.len()={} but need k*n={}", b.len(), k * n);
     let mut c = vec![0.0f32; m * n];
-    // Use matrixmultiply crate for high-performance GEMM
     unsafe {
         matrixmultiply::sgemm(
             m, k, n,
@@ -577,7 +576,11 @@ pub fn softmax(a: &Tensor) -> Tensor {
         let max_val = data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         let exps: Vec<f32> = data.iter().map(|x| (x - max_val).exp()).collect();
         let sum: f32 = exps.iter().sum();
-        exps.iter().map(|e| e / sum).collect()
+        if sum == 0.0 {
+            vec![1.0 / data.len() as f32; data.len()]
+        } else {
+            exps.iter().map(|e| e / sum).collect()
+        }
     } else {
         // 2D: softmax along last axis
         let (rows, cols) = (shape[0], shape[1]);
@@ -586,8 +589,15 @@ pub fn softmax(a: &Tensor) -> Tensor {
             let off = r * cols;
             let max_val = (0..cols).map(|c| data[off + c]).fold(f32::NEG_INFINITY, f32::max);
             let sum: f32 = (0..cols).map(|c| (data[off + c] - max_val).exp()).sum();
-            for c in 0..cols {
-                out[off + c] = (data[off + c] - max_val).exp() / sum;
+            if sum == 0.0 {
+                let uniform = 1.0 / cols as f32;
+                for c in 0..cols {
+                    out[off + c] = uniform;
+                }
+            } else {
+                for c in 0..cols {
+                    out[off + c] = (data[off + c] - max_val).exp() / sum;
+                }
             }
         }
         out
@@ -728,8 +738,8 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> Tensor {
     let shape = logits.shape();
 
     if shape.len() == 1 {
-        // Single sample
         let num_classes = shape[0];
+        assert!(targets[0] < num_classes, "cross_entropy: target {} out of range {}", targets[0], num_classes);
         let max_val = data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         let exps: Vec<f32> = data.iter().map(|x| (x - max_val).exp()).collect();
         let sum: f32 = exps.iter().sum();
@@ -759,6 +769,9 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> Tensor {
         // Batched: [batch, num_classes]
         let (batch, num_classes) = (shape[0], shape[1]);
         assert_eq!(targets.len(), batch);
+        for &t in targets {
+            assert!(t < num_classes, "cross_entropy: target {} out of range {}", t, num_classes);
+        }
 
         let mut total_loss = 0.0f32;
         let mut sm = vec![0.0f32; batch * num_classes];
@@ -1118,8 +1131,6 @@ pub fn batch_matmul(a: &Tensor, b: &Tensor) -> Tensor {
 
 #[derive(Debug)]
 pub struct BroadcastAddOp {
-    #[allow(dead_code)]
-    a_shape: Vec<usize>,
     b_shape: Vec<usize>,
 }
 
@@ -1133,7 +1144,6 @@ impl Op for BroadcastAddOp {
 
         // dB = sum over broadcast dims
         let b_numel: usize = self.b_shape.iter().product();
-        let _repeats = g.len() / b_numel;
         let mut db_data = vec![0.0f32; b_numel];
         for i in 0..g.len() {
             db_data[i % b_numel] += g[i];
@@ -1168,8 +1178,7 @@ pub fn broadcast_add(a: &Tensor, b: &Tensor) -> Tensor {
         inner.requires_grad = true;
         inner.creator = Some(Arc::new(Node {
             op: Box::new(BroadcastAddOp {
-                a_shape: a_shape,
-                b_shape: b_shape,
+                b_shape,
             }),
             inputs: vec![a.clone(), b.clone()],
         }));

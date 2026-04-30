@@ -265,8 +265,8 @@ impl Module for LayerNorm {
             inner.requires_grad = true;
             inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
                 op: Box::new(LayerNormOp {
-                    normalized: normalized,
-                    gamma: gamma,
+                    normalized,
+                    gamma,
                     input_data: data,
                     eps: self.eps,
                     dim,
@@ -775,6 +775,12 @@ pub struct TokenTrie {
     is_terminal: bool,
 }
 
+impl Default for TokenTrie {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TokenTrie {
     pub fn new() -> Self {
         TokenTrie {
@@ -787,7 +793,7 @@ impl TokenTrie {
     pub fn insert(&mut self, tokens: &[usize]) {
         let mut node = self;
         for &t in tokens {
-            node = node.children.entry(t).or_insert_with(TokenTrie::new);
+            node = node.children.entry(t).or_default();
         }
         node.is_terminal = true;
     }
@@ -852,9 +858,9 @@ pub fn generate_constrained(
 
         let mut masked: Vec<f32> = last.to_vec();
         if let Some(ref allowed_set) = allowed {
-            for i in 0..vocab_size {
+            for (i, m) in masked.iter_mut().enumerate() {
                 if !allowed_set.contains(&i) {
-                    masked[i] = f32::NEG_INFINITY;
+                    *m = f32::NEG_INFINITY;
                 }
             }
         }

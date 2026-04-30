@@ -25,11 +25,7 @@ impl<O: Optimizer> IncrementalTrainer<O> {
     /// Push a new training sample. Returns true if a micro-batch was triggered.
     pub fn push_sample(&mut self, input_ids: Vec<usize>, target_ids: Vec<usize>) -> bool {
         self.buffer.push((input_ids, target_ids));
-        if self.buffer.len() >= self.micro_batch_size {
-            true
-        } else {
-            false
-        }
+        self.buffer.len() >= self.micro_batch_size
     }
 
     /// Drain the buffer and return accumulated samples for training.

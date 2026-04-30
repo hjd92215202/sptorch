@@ -97,7 +97,7 @@ impl SafeTensorsFile {
 fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
     match dtype {
         "F32" => {
-            if bytes.len() % 4 != 0 {
+            if !bytes.len().is_multiple_of(4) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "F32 data not aligned"));
             }
             Ok(bytes.chunks_exact(4)
@@ -105,7 +105,7 @@ fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
                 .collect())
         }
         "F16" => {
-            if bytes.len() % 2 != 0 {
+            if !bytes.len().is_multiple_of(2) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "F16 data not aligned"));
             }
             Ok(bytes.chunks_exact(2)
@@ -116,7 +116,7 @@ fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
                 .collect())
         }
         "BF16" => {
-            if bytes.len() % 2 != 0 {
+            if !bytes.len().is_multiple_of(2) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "BF16 data not aligned"));
             }
             Ok(bytes.chunks_exact(2)

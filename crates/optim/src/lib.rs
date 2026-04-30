@@ -171,10 +171,10 @@ impl Optimizer for AdamW {
             }
 
             // Bias-corrected update
-            for j in 0..w_slice.len() {
+            for (j, w) in w_slice.iter_mut().enumerate() {
                 let m_hat = self.m[i][j] / bc1;
                 let v_hat = self.v[i][j] / bc2;
-                w_slice[j] -= self.lr * m_hat / (v_hat.sqrt() + self.eps);
+                *w -= self.lr * m_hat / (v_hat.sqrt() + self.eps);
             }
         }
     }

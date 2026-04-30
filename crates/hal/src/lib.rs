@@ -98,6 +98,7 @@ pub trait KernelProvider: Backend {
 
     // ---- matmul ----
     fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize);
+    #[allow(clippy::too_many_arguments)]
     fn batch_matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], batch: usize, m: usize, k: usize, n: usize);
 
     // ---- reduction ----
@@ -111,6 +112,7 @@ pub trait KernelProvider: Backend {
 
     // ---- optimizer kernels ----
     fn sgd_update_f32(&self, params: &mut [f32], grad: &[f32], lr: f32);
+    #[allow(clippy::too_many_arguments)]
     fn adam_update_f32(
         &self,
         params: &mut [f32],

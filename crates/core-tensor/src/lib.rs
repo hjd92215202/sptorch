@@ -86,12 +86,14 @@ pub enum Device {
     Custom(u16),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DType { F32, F16, BF16 }
-
-impl Default for DType {
-    fn default() -> Self { DType::F32 }
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum DType {
+    #[default]
+    F32,
+    F16,
+    BF16,
 }
+
 
 // ============ F16/BF16 conversion utilities ============
 
@@ -103,7 +105,7 @@ pub fn f32_to_f16(val: f32) -> u16 {
 
     if exp == 255 {
         // Inf/NaN
-        return (sign | 0x7C00 | (mant >> 13).min(1) as u32) as u16;
+        return (sign | 0x7C00 | (mant >> 13).min(1)) as u16;
     }
 
     let new_exp = exp - 127 + 15;
@@ -161,6 +163,7 @@ pub fn bf16_to_f32(bits: u16) -> f32 {
 pub trait DeviceBuffer: Send + Sync + fmt::Debug {
     fn device(&self) -> Device;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool { self.len() == 0 }
     fn to_host(&self) -> Vec<f32>;
     fn from_host(data: &[f32], device: Device) -> std::result::Result<Box<dyn DeviceBuffer>, String>
     where
@@ -188,10 +191,28 @@ impl Storage {
         }
     }
 
+    pub fn try_as_cpu_slice(&self) -> Result<&[f32]> {
+        match self {
+            Storage::Cpu(v) => Ok(v),
+            Storage::Device(_) => Err(TensorError::DeviceError(
+                "cannot borrow device storage as CPU slice; call to_cpu_vec() first".into(),
+            )),
+        }
+    }
+
     pub fn as_cpu_slice_mut(&mut self) -> &mut [f32] {
         match self {
             Storage::Cpu(v) => v,
             Storage::Device(_) => panic!("cannot mutably borrow device storage as CPU slice"),
+        }
+    }
+
+    pub fn try_as_cpu_slice_mut(&mut self) -> Result<&mut [f32]> {
+        match self {
+            Storage::Cpu(v) => Ok(v),
+            Storage::Device(_) => Err(TensorError::DeviceError(
+                "cannot mutably borrow device storage as CPU slice".into(),
+            )),
         }
     }
 
@@ -207,6 +228,10 @@ impl Storage {
             Storage::Cpu(v) => v.len(),
             Storage::Device(buf) => buf.len(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn device(&self) -> Device {
@@ -367,17 +392,17 @@ impl Tensor {
     }
 
     pub fn accum_grad(&self, grad_tensor: &Tensor) {
-        let incoming_data = grad_tensor.data();
-
         let mut inner = self.0.write().unwrap();
         if !inner.requires_grad { return; }
+
+        let incoming_data = grad_tensor.contiguous_data();
 
         if let Some(existing_grad) = &inner.grad {
             let g_inner = existing_grad.0.write().unwrap();
             let mut g_storage = g_inner.storage.write().unwrap();
             let g_slice = g_storage.as_cpu_slice_mut();
-            for i in 0..g_slice.len() {
-                g_slice[i] += incoming_data[i];
+            for (g, &inc) in g_slice.iter_mut().zip(incoming_data.iter()) {
+                *g += inc;
             }
         } else {
             inner.grad = Some(Tensor::new(incoming_data, inner.shape.clone()));
