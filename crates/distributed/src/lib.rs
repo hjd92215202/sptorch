@@ -11,6 +11,7 @@ pub mod proto {
 }
 
 pub mod allreduce;
+pub mod checkpoint;
 pub mod coordinator;
 pub mod data_parallel;
 pub mod worker;
