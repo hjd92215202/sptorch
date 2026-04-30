@@ -7,9 +7,10 @@
 //! - `training_data`: synthetic Text2SQL dataset + char-level tokenizer
 //! - `neural`: GPT + LoRA fine-tuning + constrained decoding for SQL generation
 
+pub mod feedback;
+pub mod neural;
 pub mod rag;
 pub mod schema;
 pub mod server;
 pub mod sql_constraint;
 pub mod training_data;
-pub mod neural;
