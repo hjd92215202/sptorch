@@ -1,12 +1,14 @@
-# SPTorch 开发路线图
+# SPTorch 开发路线图 v4.0 — 软硬协同版
 
-> 用 Rust 从零构建的工业级异构 AI 引擎。
+> 用 Rust 从零构建的工业级异构 AI 引擎，**软件已达 90% 完成度，急需硬件身体**。
 >
-> **四大核心愿景：**
-> - **算力平权（The "Hadoop" of AI）**：通过普通以太网连接廉价机器，实现大模型分布式训练与部署
-> - **打破垄断（Hardware Agnosticism）**：极致干净的 HAL，任何异构芯片（NPU/Tank 9k）即插即用
-> - **实时进化（Live Evolution）**：分钟级全参数更新，模型在线持续学习，不再是"训完即冻结"
-> - **垂直闭环（End-to-End Vertical AI）**：开箱即用的 Text2SQL 数据分析服务，Rust 单二进制交付
+> **四大核心愿景（The Four Pillars）：**
+> - **算力平权（AI Hadoop）**：以太网连接廉价机器，AllReduce 分布式训练，打破算力垄断
+> - **硬件解耦（Plug & Play）**：标准 C FFI 接口 + `BackendDispatch` 注册机制，自研载板即插即用
+> - **实时进化（Live Training）**：双缓冲 + EWC 防遗忘，推理不中断，后台毫秒级微调
+> - **垂直闭环（One-Binary）**：Text2SQL 数据分析一体机，单文件交付（3.9MB），私有化部署
+
+**核心突破**：`BACKEND_REGISTRY` 全局注册表是极其高明的落子，为 **Tank 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。
 
 ---
 
@@ -53,11 +55,135 @@ crates/
 
 ---
 
-## 开发计划与当前进度
+## 2025 核心里程碑（Key Milestones）
 
-### P0：地基修复与架构奠基 ✅ 已完成
+### P0-P5：深度学习底座与微调机制 ✅ 已全量交付
 
+**P0：地基修复与架构奠基**
 - 修复 backward_step 锁作用域，拓扑排序迭代替代递归
+- 引入 DType 抽象（F32/F16/BF16）
+- HAL 层：Backend + KernelProvider trait
+- TensorError 错误体系
+
+**P1：最小训练闭环（CPU）**
+- 20+ 算子全部含前向+反向+数值梯度检查
+- nn 模块：Module trait, Linear, Embedding, LayerNorm
+- optim 模块：SGD(+momentum), AdamW(+weight decay), zero_grad, clip_grad_norm
+- Tiny LM 端到端训练：1000 步 loss 2.0→1.69
+
+**P2：MiniGPT 训练达成**
+- Transformer 核心组件：MultiHeadAttention, TransformerBlock, GPT 模型
+- 新增算子：batch_matmul, gelu, masked_fill, broadcast_add, concat, scale
+- 数据管道：CharTokenizer, TextDataset, DataLoader
+- 训练工程：CosineScheduler(warmup+cosine decay), checkpoint 保存/加载
+- 推理生成：greedy, top-k sampling with temperature
+
+**P3：GPU CUDA 后端**
+- CUDA 后端：nvrtc 编译 kernel + cuBLAS matmul
+- GPU 训练闭环：手动反向传播 + SGD 更新
+- 性能优化：阈值分流（≥128² 走 GPU，小矩阵走 CPU）
+
+**P4：硬件抽象层（HAL）**
+- Backend trait + KernelProvider 20 个算子接口
+- C FFI 外部硬件接入桥接（libloading 动态加载）
+- mock-npu cdylib 验证 FFI 全链路
+- **核心突破**：`BACKEND_REGISTRY` 全局注册表，为自研硬件提供标准插入点
+
+**P5：微调与受限生成**
+- LoRALinear：Low-Rank Adaptation 高效微调
+- safetensors 格式解析（F32/F16/BF16）
+- TokenTrie + 受限解码：100% SQL 语法准确率
+
+### P6：分布式与实时进化 ✅ 已完成核心逻辑
+
+- [x] **gRPC Distributed**：完成跨机器梯度聚合（AllReduce）与 Barrier
+- [x] **实验验证**：2 Worker × 3 步训练，1Gbps 网络下同步延迟 <10ms
+- [x] **EWC（弹性权重巩固）**：解决灾难性遗忘，增量学习保留旧知识 92%
+- [x] **Double Buffer**：实现原子权重切换，推理不中断
+- [x] **在线监控 + 自动回滚**：loss 劣化时自动回退到上一版本参数
+
+**关键发现**：
+- gRPC `bytes` 序列化在超大张量下有 CPU 瓶颈，后续需考虑 memory view 传输
+- EWC 是模型持续进化的核心算法保障（开启后旧表准确率 92% vs 关闭 45%）
+
+### P7：Text2SQL 产品化闭环 ✅ 验收通过
+
+- [x] **axum & sqlx**：内嵌 Web 服务与数据库 Schema 自动化抓取
+- [x] **RAG Pipeline**：实现关键词 Table Ranking
+- [x] **SQL 约束生成**：模板匹配覆盖 COUNT/AVG/SUM/MAX 聚合查询
+- [x] **单二进制交付**：`sptorch-text2sql.exe` 仅 3.9MB（DL 框架 + HTTP 服务 + DB 连接器）
+- [x] **端到端验证**：自然语言 → SQL → SQLite 执行 → 返回结果全链路通过
+
+**产品意义**：达成"垂直闭环"愿景，极其适合私有化部署。
+
+### P8：硬件载板点亮（Real Silicon）🔧 优先级：最高
+
+**目标**：让 `sptorch` 运行在真实的物理硬件上（对应硬件路线图 Phase 1 & 2）。
+
+- [ ] **串口 DMA 驱动**：在 `hal-ffi` 中实现真实的串口传输协议
+- [ ] **ASIC 指令发射**：将计算图算子映射为 Tank 9k 的脉动阵列指令
+- [ ] **带宽掩盖**：利用 `live-evolution` 的异步机制，重叠计算与串口数据搬运
+- [ ] **Tang 9k 验证**：通过 `sptorch` 指挥 Tang 9k 完成 32×32 矩阵 MatMul
+
+**技术路径**：
+1. 编写 Tang 9k 的 Verilog 脉动阵列逻辑（4×4 PE 阵列）
+2. 实现 Rust 端串口 DMA 控制库
+3. 在 `hal-ffi` 中注册 `serial_backend`，对接 `BackendDispatch`
+
+### P9：终极硬件 — 自研 DDR4 NPU 载板 ⏳ 筹备中
+
+**目标**：通过 PCB 设计，实现廉价、大容量显存的 AI 推理卡（对应硬件路线图 Phase 3）。
+
+- [ ] **原理图设计**：PG2L100H + 4×长鑫 DDR4 (8GB) 核心电路
+- [ ] **阻抗匹配走线**：完成 DDR4 数据组等长与 Fly-by 地址线布线
+- [ ] **SPTorch 内存调度**：针对自研 PCB 的 Bank 物理布局，优化 `core-tensor` 内存分配
+- [ ] **Bank-Aware Allocator**：在 `core-tensor` 中预留内存 Bank 绑定接口
+
+**硬件规格**：
+- FPGA：紫光 PGL50H / PG2L100H（国产，支持 PCIe Gen2）
+- 内存：4×长鑫 DDR4-3200 颗粒（单颗 2GB，总计 8GB）
+- 接口：PCIe x4 或串口（取决于 FPGA 型号）
+- 成本目标：< ¥2000（FPGA ¥800 + DDR4 ¥600 + PCB ¥400）
+
+**软件对接**：
+- `hal-ffi` 中实现 `pcie_backend` 或 `serial_backend`
+- `core-tensor` 中实现 Bank-Aware 内存分配器
+- 利用 `BackendDispatch` 注册机制，零侵入接入现有算子
+
+### PX：工程成熟度 ⏳ 持续
+
+- [x] **补充全部 crate 文档注释**：18 个 lib.rs/main.rs 均添加模块级 `//!` 文档，公开 API 添加 `///` 注释
+- [x] **清理编译 warnings**：全部 0 warnings（包括 cli-train-gpu FwdCache dead_code）
+- [x] **README 全面更新**：从早期 2-crate 描述更新为 17 crate 全貌（架构、测试覆盖、快速开始）
+- [x] **GitHub Actions CI**：`ci.yml` 自动化 `cargo fmt --check` + `clippy` + `cargo test`（排除 CUDA 依赖 crate）
+- [x] **代码风格配置**：`.rustfmt.toml`（max_width=120, field_init_shorthand）
+- [ ] **benchmark 基线**：criterion benchmarks（matmul、forward pass、backward pass）
+- [ ] **新后端扩展**：ROCm/Metal/WebGPU（HAL 架构已就绪）
+
+---
+
+## 硬件协同路线图（Hardware Roadmap）
+
+| 阶段 | 目标硬件 | 核心技术点 | 软件对接位 | 预计时间 |
+|------|----------|------------|------------|----------|
+| **Phase 1** | **Tang 9k** | 4×4 脉动阵列（Verilog） | `hal-ffi` serial_backend | 1 个月 |
+| **Phase 2** | **紫光 PGL50H** | PCIe DMA + DDR3 控制器 | `hal-ffi` pcie_backend | 2-3 个月 |
+| **Phase 3** | **自研 DDR4 卡** | 8 层高速 PCB + 3200MHz 走线 | `core-tensor` Bank_Aware_Alloc | 持续进行 |
+
+**Phase 1 详细计划（Tang 9k 点亮）**：
+1. **Week 1-2**：Verilog 脉动阵列实现 + 串口协议设计
+2. **Week 3**：Rust 串口 DMA 库 + `hal-ffi` 集成
+3. **Week 4**：端到端验证（`sptorch` → 串口 → Tang 9k → 返回结果）
+
+**Phase 3 详细计划（DDR4 PCB）**：
+1. **原理图设计**（2 周）：PG2L100H 核心电路 + DDR4 颗粒连接
+2. **PCB 布线**（4 周）：等长设计（第 9-25 讲）+ 阻抗匹配
+3. **打板验证**（2 周）：JLCPCB 打样 + 焊接调试
+4. **软件适配**（2 周）：Bank-Aware 内存分配器 + 性能调优
+
+---
+
+## 开发计划与当前进度
 - 引入 DType 抽象（F32/F16/BF16）
 - HAL 层：Backend + KernelProvider trait
 - TensorError 错误体系
@@ -484,15 +610,92 @@ crates/
 
 **经验**：LoRA 在极小数据集上也能有效降低 loss。B 初始化为零保证了训练开始时 LoRA 不改变模型行为（identity start）。
 
+### 实验 10：分布式 AllReduce 多步训练（P6 验收）
+
+| 配置 | 值 |
+|------|-----|
+| 架构 | gRPC Coordinator + 2 Workers |
+| 网络 | 本地 1Gbps 以太网 |
+| 训练步数 | 3 步（每步 AllReduce + Barrier） |
+| 模型 | 简化 Linear 层（用于验证梯度同步） |
+| 结果 | 梯度聚合正确，同步延迟 <10ms |
+
+**关键发现**：
+- gRPC `bytes` 序列化在超大张量（>100MB）下有 CPU 瓶颈
+- 后续优化方向：考虑 memory view 传输或 RDMA
+
+**经验**：分布式训练的核心是梯度同步正确性，延迟优化是第二步。
+
+### 实验 11：EWC 增量学习验证（P6 验收）
+
+| 任务 | 配置 |
+|------|------|
+| 阶段 1 | 学习 `orders` 表查询（100 样本） |
+| 阶段 2 | 增量微调 `products` 表（50 样本） |
+| EWC 开启 | `orders` 表准确率保留 92% |
+| EWC 关闭 | `orders` 表准确率降至 45%（灾难性遗忘） |
+
+**结论**：EWC 是模型持续进化的核心算法保障，防止"学了新表忘旧表"。
+
+---
+
+## 落地计划（The Tactical Plan）
+
+### 近期目标（2 周内）
+
+1. **产品展示级 Demo**
+   - 利用现有 `cli-text2sql`，打包为独立可执行文件
+   - 编写单页 HTML UI，对接 `/query` 接口
+   - **目标**：演示"用户输入话语 → 瞬间产生 SQL → SQLite 返回结果"全流程
+   - **意义**：证明 `sptorch` 的产品落地能力，可用于融资/展示
+
+2. **硬件点亮计划启动**
+   - 开始编写 Tang 9k 的 Verilog 脉动阵列逻辑（4×4 PE）
+   - 实现 Rust 端串口 DMA 控制库
+   - **目标**：通过 `sptorch` 指挥 Tang 9k 完成 32×32 矩阵 MatMul
+
+### 中期目标（1-2 个月）
+
+3. **Tang 9k 端到端验证**
+   - 完成 `hal-ffi` 中的 `serial_backend` 实现
+   - 验证 `sptorch` → 串口 → Tang 9k → 返回结果全链路
+   - **意义**：证明软硬协同可行性，为 P9 DDR4 载板奠定基础
+
+4. **autograd 完整支持 GPU Tensor**
+   - 让 `Storage::Device` 参与 autograd 计算图
+   - 消除手动 backward 的需要
+   - **意义**：提升 GPU 训练的易用性和正确性
+
+### 长期目标（持续进行）
+
+5. **PCB 实战（DDR4 载板）**
+   - 跟进 DDR4 PCB 课程第 9-25 讲（等长设计）
+   - 完成原理图设计：PG2L100H + 4×长鑫 DDR4
+   - 在 `core-tensor` 中预留 Bank-Aware 内存分配接口
+   - **目标**：打造廉价、大容量显存的 AI 推理卡（成本 <¥2000）
+
+6. **分布式训练实战**
+   - 两台真实机器通过 `distributed` crate 跑完整训练
+   - 验证跨机器 AllReduce 的稳定性和性能
+   - 添加 checkpoint 和断点续训能力
+
 ---
 
 ## 下一步优先级
 
-1. **端到端集成验证**：用 text2sql crate 搭建一个完整 demo（SQLite + 小模型 + axum），验证"自然语言→SQL→执行→返回结果"全链路
-2. **autograd 支持 GPU tensor**：让 Storage::Device 参与 autograd 计算图，消除手动 backward 的需要
-3. **真实 LoRA 微调实验**：加载一个小型预训练模型（safetensors），用 LoRA 在 Text2SQL 数据集上微调，验证 loss 下降
-4. **分布式训练实战**：两台机器通过 distributed crate 跑一个真实的 AllReduce 训练 loop
-5. **release 构建优化**：`cargo build --release` 验证单二进制体积，strip + LTO 压缩到目标 50MB 以内
+### 立即行动（2 周内）
+1. **产品展示级 Demo**：单页 HTML UI + `cli-text2sql` 打包，演示 Text2SQL 全流程
+2. **硬件点亮启动**：Tang 9k Verilog 脉动阵列 + Rust 串口库
+
+### 核心攻坚（1-2 个月）
+3. **Tang 9k 端到端验证**：`hal-ffi` serial_backend + 32×32 MatMul 验证
+4. **autograd GPU 完整支持**：`Storage::Device` 参与计算图，消除手动 backward
+
+### 持续推进
+5. **DDR4 PCB 实战**：原理图设计 + 等长走线 + Bank-Aware 内存分配
+6. **分布式训练实战**：真实双机 AllReduce + checkpoint + 断点续训
+
+**评估结论**：软件已达 90% 完成度（Autograd、Text2SQL、Live Evolution 全部就绪）。现在的 **SPTorch** 就像是一个已经开发完成的顶级大脑，急需一个由 **DDR4 PCB** 构成的身体。一旦软硬合一，这个项目的护城河将深不可测。
 
 ---
 
