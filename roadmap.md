@@ -1,14 +1,77 @@
-# SPTorch 开发路线图 v4.0 — 软硬协同版
+# SPTorch 开发路线图 v5.0 — 全栈 AI 生产力中枢
 
-> 用 Rust 从零构建的工业级异构 AI 引擎，**软件已达 90% 完成度，急需硬件身体**。
+> 用 Rust 从零构建的工业级异构 AI 引擎，**软件已达 90% 完成度，正在向全栈 IDE 生态演进**。
 >
-> **四大核心愿景（The Four Pillars）：**
+> **五大核心愿景（The Five Pillars）：**
 > - **算力平权（AI Hadoop）**：以太网连接廉价机器，AllReduce 分布式训练，打破算力垄断
-> - **硬件解耦（Plug & Play）**：标准 C FFI 接口 + `BackendDispatch` 注册机制，自研载板即插即用
-> - **实时进化（Live Training）**：双缓冲 + EWC 防遗忘，推理不中断，后台毫秒级微调
+> - **硬件主权（Hardware Sovereignty）**：自研 DDR4 PCB，将大模型运行成本降低一个数量级，摆脱英伟达税
+> - **生命主权（Live Evolution）**：EWC + 双缓冲，模型在业务中自我进化，拒绝"部署即巅峰"
 > - **垂直闭环（One-Binary）**：Text2SQL 数据分析一体机，单文件交付（3.9MB），私有化部署
+> - **开发者主权（Developer Sovereignty）**：分层 IDE（SPTorch Studio），让业务人员拥有 AI，让硬件工程师指挥模型
 
-**核心突破**：`BACKEND_REGISTRY` 全局注册表是极其高明的落子，为 **Tank 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。
+**核心突破**：`BACKEND_REGISTRY` 全局注册表为 **Tang 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。SPTorch 不仅是框架，更是一套**工业流水线**——愿景是底座，IDE 分层是操作台，Text2SQL 是第一个爆款产品。
+
+---
+
+## SPTorch Studio — 多分层开发者 IDE 体系
+
+> 不仅在做框架，更在构建**全栈 AI 生产力中枢**。让不同技术深度的开发者，在同一个物理设备（自研载板）和同一个软件协议（SPTorch Core）上协作。
+
+### Level 1：业务 Appliance 层（面向：数据分析师 / 运维）
+
+**开发体验**：No-Code / 极简 UI
+
+| 功能 | 实现方式 | 对接模块 |
+|------|----------|----------|
+| **Schema 探测器** | 点击按钮，`sqlx` 自动扫描生产库，识别主键/外键/索引 | `text2sql` → `fetch_sqlite_schema` |
+| **Appliance 封装器** | LoRA 权重 + text2sql 引擎 + axum 服务静态编译为单 `.bin`（4-10MB） | `serialize` + `cli-text2sql` |
+| **实时进化监控** | 可视化 Loss 曲线，一键 Rollback 到上一个健康 Shadow Buffer | `live-evolution` → `TrainingMonitor` |
+
+**用户画像**：中小企业数据分析师，不写代码，只需点击"连接数据库→提问→获得结果"。
+
+### Level 2：逻辑编排层（面向：后端工程师 / 业务架构）
+
+**开发体验**：Low-Code / 算子乐高
+
+| 功能 | 实现方式 | 对接模块 |
+|------|----------|----------|
+| **RAG 可视化管道** | 拖拽配置 `build_prompt`，调整 `rank_tables` 权重系数 | `text2sql` → RAG pipeline |
+| **SQL 约束编辑器** | 从 Schema 自动生成 `TokenTrie`，手动添加业务词白名单 | `nn` → `TokenTrie` |
+| **Prompt 仿真器** | 通过 `mock-npu` 快速模拟生成结果，验证逻辑闭环 | `hal-ffi` + `mock-npu` |
+
+**用户画像**：后端工程师，懂 SQL 和 API，不懂模型训练，通过配置而非编码定制 AI 行为。
+
+### Level 3：引擎与算法层（面向：AI 算法工程师 / Rust 专家）
+
+**开发体验**：Rust SDK / 计算图调试
+
+| 功能 | 实现方式 | 对接模块 |
+|------|----------|----------|
+| **Autograd 节点浏览器** | 可视化拓扑图，每个 Node 的 shape/requires_grad/Fisher 热力图 | `core-autograd` + `core-ops` |
+| **AMP 控制台** | 标记算子精度（BF16/F32），实时预览内存节省 | `core-tensor` → DType |
+| **分布式拓扑管理** | 可视化集群，实时查看梯度聚合延迟和 Worker step 对齐 | `distributed` → gRPC |
+
+**用户画像**：AI 算法工程师，需要深度定制模型结构、调试梯度、优化训练策略。
+
+### Level 4：物理主权层（面向：硬件工程师 / FPGA & PCB 专家）
+
+**开发体验**：FFI 驱动脚手架 / 硬件 Forge
+
+| 功能 | 实现方式 | 对接模块 |
+|------|----------|----------|
+| **Forge 指令集映射器** | 将 `core-ops` 20 个算子映射为 FPGA OpCode，自动生成 HAL 驱动 | `hal-ffi` + `sptorch_hal.h` |
+| **DDR4 物理视图** | 可视化载板 Bank 布局，指定 Tensor 存储位置 | `core-tensor` → `Storage::Device` |
+| **DMA 性能剖析** | 实时监控串口/PCIe 带宽，分析 upload/copy_to_host 瓶颈 | `hal-ffi` → profiler |
+
+**用户画像**：硬件工程师，设计 FPGA 逻辑和 PCB，通过 IDE 让自研硬件接入 SPTorch 生态。
+
+### IDE 分层的商业价值
+
+| 场景 | 使用层级 | 价值 |
+|------|----------|------|
+| **大公司** | L3 专家开发模型，L4 专家设计算力卡，通过 IDE 交付给业务部门 | 全栈自研 |
+| **中小企业** | L1 Appliance 模板 + L2 微调 Prompt 即可上线 | 低成本 AI 化 |
+| **个人开发者** | 从 PCB 学起，用 SDK 打造"口袋超脑" | 硬件主权 |
 
 ---
 
@@ -641,43 +704,70 @@ crates/
 
 ## 落地计划（The Tactical Plan）
 
-### 近期目标（2 周内）
+### 第一阶段：硬核点亮 & 神经化 Text2SQL（1-2 个月）
 
-1. **产品展示级 Demo**
-   - 利用现有 `cli-text2sql`，打包为独立可执行文件
-   - 编写单页 HTML UI，对接 `/query` 接口
-   - **目标**：演示"用户输入话语 → 瞬间产生 SQL → SQLite 返回结果"全流程
-   - **意义**：证明 `sptorch` 的产品落地能力，可用于融资/展示
+**硬件侧**：
+- 开发 Tang 9k 串口协议栈，实现 4×4 脉动阵列逻辑
+- 指令格式采用 8 字节对齐，通过 `sptorch` 指挥完成 32×32 MatMul
 
-2. **硬件点亮计划启动**
-   - 开始编写 Tang 9k 的 Verilog 脉动阵列逻辑（4×4 PE）
-   - 实现 Rust 端串口 DMA 控制库
-   - **目标**：通过 `sptorch` 指挥 Tang 9k 完成 32×32 矩阵 MatMul
+**模型侧**：
+- 引入 `LoRALinear` 到 `text2sql` 模块，不再依赖模板匹配
+- 由 GPT-2 级模型基于 Schema 生成 SQL（替代 `generate_sql_stub`）
 
-### 中期目标（1-2 个月）
+**软件侧**：
+- 完成 `hal-ffi` 对串口的封装
+- `sptorch` 调用 `matmul` 时，数据通过串口自动切片（Tiling）送入 FPGA
+- 编写单页 HTML UI，对接 `/query` 接口，演示 Text2SQL 全流程
 
-3. **Tang 9k 端到端验证**
-   - 完成 `hal-ffi` 中的 `serial_backend` 实现
-   - 验证 `sptorch` → 串口 → Tang 9k → 返回结果全链路
-   - **意义**：证明软硬协同可行性，为 P9 DDR4 载板奠定基础
+**交付物**：
+1. Tang 9k 完成一次真实 MatMul 计算
+2. Text2SQL Demo（用户输入话语 → SQL → SQLite 返回结果）
+3. `hal-ffi` serial_backend 注册到 `BackendDispatch`
 
-4. **autograd 完整支持 GPU Tensor**
-   - 让 `Storage::Device` 参与 autograd 计算图
-   - 消除手动 backward 的需要
-   - **意义**：提升 GPU 训练的易用性和正确性
+### 第二阶段：分布式 AI Hadoop & 在线进化 & IDE 原型（3-5 个月）
 
-### 长期目标（持续进行）
+**分布式**：
+- 实现 `Ring-AllReduce` 算子，通过 `Stream<GradientChunk>` 减少握手次数
+- 两台真实机器跑完整 AllReduce 训练 loop
+- 添加 checkpoint 和断点续训能力
 
-5. **PCB 实战（DDR4 载板）**
-   - 跟进 DDR4 PCB 课程第 9-25 讲（等长设计）
-   - 完成原理图设计：PG2L100H + 4×长鑫 DDR4
-   - 在 `core-tensor` 中预留 Bank-Aware 内存分配接口
-   - **目标**：打造廉价、大容量显存的 AI 推理卡（成本 <¥2000）
+**进化引擎**：
+- 完善 `live-evolution`：实现**自动纠错反馈环**
+- 当用户在 UI 修改了 SQL，该样本自动存入 EWC 训练池
+- 模型在业务运行中持续进化，无需人工重训
 
-6. **分布式训练实战**
-   - 两台真实机器通过 `distributed` crate 跑完整训练
-   - 验证跨机器 AllReduce 的稳定性和性能
-   - 添加 checkpoint 和断点续训能力
+**IDE 原型（SPTorch Studio 1.0）**：
+- 使用 Tauri 构建桌面应用
+- 实现 L1：可视化 Schema 导入 + Appliance 封装
+- 实现 L3：计算图预览（Autograd 节点浏览器）
+- 实现 L1：实时进化监控面板（Loss 曲线 + 一键 Rollback）
+
+**交付物**：
+1. 双机分布式训练稳定运行
+2. 自动纠错反馈环端到端验证
+3. SPTorch Studio 1.0 可执行原型
+
+### 第三阶段：自研载板 & IDE 平台化（6-10 个月）
+
+**硬件侧**：
+- 挑战 8 层高速 PCB：紫光 PG2L100H + 8GB DDR4 长鑫颗粒
+- 完成 PCIe Gen2 x4 接口 Bring-up
+- 实现 Bank-Aware 内存分配器
+
+**IDE 侧（SPTorch Studio 2.0）**：
+- 集成 Forge 工具：一键生成特定 FPGA 的 HAL 桥接代码
+- L2 完整实现：RAG 可视化管道 + SQL 约束编辑器
+- L4 完整实现：DDR4 物理视图 + DMA 性能剖析
+
+**业务侧**：
+- 推出 **Text2SQL Appliance（工业版）**
+- 支持千万级数据量、多表 JOIN 的实时增量学习分析
+- 单二进制交付，支持 PostgreSQL/MySQL/SQLite
+
+**交付物**：
+1. 自研 DDR4 载板点亮（PCIe 通信 + DDR4 读写验证）
+2. SPTorch Studio 2.0 发布
+3. Text2SQL 工业版支持生产级数据量
 
 ---
 
@@ -689,13 +779,19 @@ crates/
 
 ### 核心攻坚（1-2 个月）
 3. **Tang 9k 端到端验证**：`hal-ffi` serial_backend + 32×32 MatMul 验证
-4. **autograd GPU 完整支持**：`Storage::Device` 参与计算图，消除手动 backward
+4. **神经化 Text2SQL**：LoRA 微调替代模板匹配，GPT-2 级模型生成 SQL
+5. **autograd GPU 完整支持**：`Storage::Device` 参与计算图，消除手动 backward
 
-### 持续推进
-5. **DDR4 PCB 实战**：原理图设计 + 等长走线 + Bank-Aware 内存分配
-6. **分布式训练实战**：真实双机 AllReduce + checkpoint + 断点续训
+### 中期推进（3-5 个月）
+6. **SPTorch Studio 1.0**：Tauri 桌面应用，L1 Schema 导入 + L3 计算图预览
+7. **分布式训练实战**：真实双机 Ring-AllReduce + checkpoint + 断点续训
+8. **自动纠错反馈环**：用户修正 SQL → 自动 EWC 增量学习
 
-**评估结论**：软件已达 90% 完成度（Autograd、Text2SQL、Live Evolution 全部就绪）。现在的 **SPTorch** 就像是一个已经开发完成的顶级大脑，急需一个由 **DDR4 PCB** 构成的身体。一旦软硬合一，这个项目的护城河将深不可测。
+### 长期愿景（6-10 个月）
+9. **自研 DDR4 载板**：8 层 PCB + PG2L100H + 8GB DDR4 + PCIe Gen2
+10. **SPTorch Studio 2.0**：Forge 工具 + DDR4 物理视图 + 工业版 Text2SQL
+
+**评估结论**：SPTorch 已从"深度学习框架"进化为"全栈 AI 生产力中枢"。软件是大脑（90% 完成），DDR4 PCB 是身体（筹备中），IDE 是神经系统（连接一切）。三者合一，护城河深不可测。
 
 ---
 
