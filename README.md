@@ -1,13 +1,17 @@
 # SPTorch — Rust 工业级异构 AI 引擎
 
-用 Rust 从零构建的类 PyTorch 深度学习框架，覆盖张量计算、自动微分、GPU 加速、分布式训练、在线学习与垂直产品化。
+用 Rust 从零构建的类 PyTorch 深度学习框架，覆盖张量计算、自动微分、GPU 加速、分布式训练、在线学习与分层 IDE 生态。
 
 **四大核心愿景：**
 
 - **算力平权**：廉价以太网集群分布式训练（gRPC AllReduce）
-- **打破垄断**：HAL 硬件抽象层 + C FFI，任意芯片即插即用
-- **实时进化**：双缓冲参数 + EWC，分钟级全参数在线学习
-- **垂直闭环**：Text2SQL 数据分析服务，Rust 单二进制交付（3.9MB）
+- **硬件主权**：自研 DDR4 PCB，HAL 硬件抽象层 + C FFI，任意芯片即插即用
+- **生命主权**：双缓冲参数 + EWC，分钟级全参数在线学习，模型在业务中自我进化
+- **开发者主权**：分层 IDE（SPTorch Studio），让业务人员拥有 AI，让硬件工程师指挥模型
+
+**能力验证：**
+
+- **Text2SQL 一体机**：四大愿景的首个产品化验证，Rust 单二进制交付（3.9MB），证明框架从训练→推理→产品的完整闭环能力
 
 ## Workspace 结构（17 crates）
 
@@ -76,4 +80,4 @@ cargo run --release -p cli-text2sql
 - OS: Windows 10
 - GPU: NVIDIA GeForce RTX 3050 (6GB, Compute 8.6)
 - CUDA: 12.4
-- Rust: stable (2021 edition)
+- Rust: 1.95.0 (stable, 2021 edition)

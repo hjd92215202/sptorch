@@ -34,7 +34,9 @@
       "Read(//tmp/**)",
       "Bash(curl -s \"https://github.com/hjd92215202/sptorch/actions/runs/25159276231\")",
       "WebFetch(domain:github.com)",
-      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/runs?per_page=1\")"
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/runs?per_page=1\")",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)"
     ]
   }
 }
