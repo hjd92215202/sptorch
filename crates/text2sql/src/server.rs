@@ -2,6 +2,8 @@ use axum::{extract::State, routing::post, Json, Router};
 use axum::response::Html;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use nn::GPT;
+use crate::training_data::SqlTokenizer;
 
 #[derive(Deserialize)]
 pub struct QueryRequest {
@@ -13,19 +15,32 @@ pub struct QueryRequest {
 pub struct QueryResponse {
     pub sql: String,
     pub explanation: String,
+    pub mode: String,
 }
 
 pub struct AppState {
     pub schema_info: Vec<crate::schema::TableSchema>,
+    pub model: Option<GPT>,
+    pub tokenizer: Option<SqlTokenizer>,
 }
 
 async fn query_handler(State(state): State<Arc<AppState>>, Json(req): Json<QueryRequest>) -> Json<QueryResponse> {
-    let prompt = crate::rag::build_prompt(&req.question, &state.schema_info);
-    let sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
-    Json(QueryResponse {
-        sql,
-        explanation: format!("Generated from: {}", prompt),
-    })
+    // Try neural model first, fall back to template matching
+    if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
+        let sql = crate::neural::generate_sql(model, tok, &req.question, &state.schema_info, 60);
+        Json(QueryResponse {
+            sql,
+            explanation: format!("Neural model generation for: {}", req.question),
+            mode: "neural".into(),
+        })
+    } else {
+        let sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
+        Json(QueryResponse {
+            sql,
+            explanation: format!("Template matching for: {}", req.question),
+            mode: "template".into(),
+        })
+    }
 }
 
 async fn health_handler() -> &'static str {

@@ -26,7 +26,11 @@ async fn main() {
         eprintln!("  {} ({} columns)", s.table_name, s.columns.len());
     }
 
-    let state = Arc::new(AppState { schema_info: schemas });
+    let state = Arc::new(AppState {
+        schema_info: schemas,
+        model: None,
+        tokenizer: None,
+    });
     let addr = "0.0.0.0:8080";
     eprintln!("[sptorch-text2sql] starting server on {}", addr);
     eprintln!("[sptorch-text2sql] POST /query {{\"question\": \"...\"}}\n");
