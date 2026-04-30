@@ -614,3 +614,101 @@ mod tests {
         }
     }
 }
+
+// ============ BackendDispatch implementation ============
+
+use core_tensor::{BackendDispatch, Device, register_backend};
+use std::sync::OnceLock;
+
+static CUDA_BACKEND: OnceLock<Option<CudaBackend>> = OnceLock::new();
+
+fn get_or_init_cuda() -> Option<&'static CudaBackend> {
+    CUDA_BACKEND.get_or_init(|| {
+        match CudaBackend::new(0) {
+            Ok(b) => {
+                if b.load_kernels().is_ok() { Some(b) } else { None }
+            }
+            Err(_) => None,
+        }
+    }).as_ref()
+}
+
+/// Register the CUDA backend into the global dispatch registry.
+/// Call this once at startup to enable GPU-accelerated autograd ops.
+pub fn register_cuda_backend() {
+    if get_or_init_cuda().is_some() {
+        let dispatch = Arc::new(CudaDispatch);
+        register_backend(Device::Cuda(0), dispatch);
+        eprintln!("[sptorch] CUDA backend registered for autograd dispatch");
+    }
+}
+
+struct CudaDispatch;
+
+impl BackendDispatch for CudaDispatch {
+    fn add_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gb = GpuTensor::from_host(backend, b, vec![b.len()]).unwrap();
+        let gc = backend.gpu_add(&ga, &gb).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn mul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gb = GpuTensor::from_host(backend, b, vec![b.len()]).unwrap();
+        let gc = backend.gpu_mul(&ga, &gb).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn neg_f32(&self, a: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_neg(&ga).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn exp_f32(&self, a: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_exp(&ga).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn log_f32(&self, a: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_log(&ga).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn relu_f32(&self, a: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_relu(&ga).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn gelu_f32(&self, a: &[f32], out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_gelu(&ga).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn scale_f32(&self, a: &[f32], scalar: f32, out: &mut [f32]) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![a.len()]).unwrap();
+        let gc = backend.gpu_scale(&ga, scalar).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+
+    fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize) {
+        let backend = get_or_init_cuda().unwrap();
+        let ga = GpuTensor::from_host(backend, a, vec![m, k]).unwrap();
+        let gb = GpuTensor::from_host(backend, b, vec![k, n]).unwrap();
+        let gc = backend.gpu_matmul(&ga, &gb).unwrap();
+        out.copy_from_slice(&gc.to_host(backend).unwrap());
+    }
+}
