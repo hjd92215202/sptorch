@@ -438,7 +438,7 @@ impl Tensor {
             if let Some(node) = creator {
                 let input_grads = node.op.backward(&grad_output);
 
-                for (input, maybe_grad) in node.inputs.iter().zip(input_grads.into_iter()) {
+                for (input, maybe_grad) in node.inputs.iter().zip(input_grads) {
                     if let Some(grad) = maybe_grad {
                         input.accum_grad(&grad);
 

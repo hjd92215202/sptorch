@@ -13,7 +13,14 @@
       "Bash(git commit *)",
       "Bash(cargo clippy *)",
       "Bash(cargo fmt *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(ping github.com -n 2)",
+      "Bash(git config *)",
+      "Bash(env)",
+      "Bash(curl -s --connect-timeout 10 https://github.com)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git -c http.sslBackend=openssl push github main)"
     ]
   }
 }
