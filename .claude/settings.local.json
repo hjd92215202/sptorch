@@ -20,7 +20,20 @@
       "Bash(env)",
       "Bash(curl -s --connect-timeout 10 https://github.com)",
       "Bash(echo \"exit: $?\")",
-      "Bash(git -c http.sslBackend=openssl push github main)"
+      "Bash(git -c http.sslBackend=openssl push github main)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/hjd92215202/sptorch/actions/runs?per_page=1)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/hjd92215202/sptorch/actions/runs/25159276231)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" https://api.github.com/repos/hjd92215202/sptorch/actions/runs/25159276231/jobs)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/runs/25159276231/jobs\")",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/jobs/73749111468/logs\")",
+      "Bash(gh auth *)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/runs/25159276231/logs\" -o /tmp/ci_logs.zip)",
+      "Bash(unzip -o /tmp/ci_logs.zip -d /tmp/ci_logs)",
+      "Bash(curl -s -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/hjd92215202/sptorch/actions/runs/25159276231/attempts/1/logs\" -L -o /tmp/ci_logs.zip)",
+      "Read(//tmp/**)",
+      "Bash(curl -s \"https://github.com/hjd92215202/sptorch/actions/runs/25159276231\")",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

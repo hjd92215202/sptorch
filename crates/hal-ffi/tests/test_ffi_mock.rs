@@ -8,7 +8,13 @@ fn mock_npu_path() -> PathBuf {
     p.pop(); // project root
     p.push("target");
     p.push("debug");
-    p.push("mock_npu.dll");
+    if cfg!(target_os = "windows") {
+        p.push("mock_npu.dll");
+    } else if cfg!(target_os = "macos") {
+        p.push("libmock_npu.dylib");
+    } else {
+        p.push("libmock_npu.so");
+    }
     p
 }
 
@@ -16,7 +22,7 @@ fn load_mock() -> FfiBackend {
     let path = mock_npu_path();
     assert!(
         path.exists(),
-        "mock_npu.dll not found at {:?}. Run `cargo build -p mock-npu` first.",
+        "mock_npu lib not found at {:?}. Run `cargo build -p mock-npu` first.",
         path
     );
     FfiBackend::load(&path).expect("failed to load mock NPU backend")
