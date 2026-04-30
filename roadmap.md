@@ -135,7 +135,13 @@ crates/
 
 ### PX：工程成熟度 ⏳ 持续
 
-- CI/CD、文档、新后端扩展（ROCm/Metal/WebGPU）
+- [x] **补充全部 crate 文档注释**：18 个 lib.rs/main.rs 均添加模块级 `//!` 文档，公开 API 添加 `///` 注释
+- [x] **清理编译 warnings**：全部 0 warnings（包括 cli-train-gpu FwdCache dead_code）
+- [x] **README 全面更新**：从早期 2-crate 描述更新为 17 crate 全貌（架构、测试覆盖、快速开始）
+- [x] **GitHub Actions CI**：`ci.yml` 自动化 `cargo fmt --check` + `clippy` + `cargo test`（排除 CUDA 依赖 crate）
+- [x] **代码风格配置**：`.rustfmt.toml`（max_width=120, field_init_shorthand）
+- [ ] **benchmark 基线**：criterion benchmarks（matmul、forward pass、backward pass）
+- [ ] **新后端扩展**：ROCm/Metal/WebGPU（HAL 架构已就绪）
 
 ---
 

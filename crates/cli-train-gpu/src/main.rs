@@ -238,6 +238,7 @@ struct FwdCache {
     v: GpuTensor,
     attn_weights: GpuTensor,
     attn_out: GpuTensor,
+    #[allow(dead_code)]
     attn_proj: GpuTensor,
     x: GpuTensor,
     h1_pre: GpuTensor,

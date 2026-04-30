@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(py|rs|go|cpp|c|java|ts\\)$\")",
+      "Bash(awk '{print $3}')",
+      "Bash(xargs -I {} ls -la {})",
+      "Bash(grep -r \"^[[:space:]]*///\" /c/ai/sptorch/crates --include=\"*.rs\")",
+      "Bash(xargs wc *)",
+      "Bash(cargo check *)",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(git add *)"
+    ]
+  }
+}
