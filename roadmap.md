@@ -1,15 +1,17 @@
-# SPTorch 开发路线图 v5.0 — 全栈 AI 生产力中枢
+# SPTorch 开发路线图 v5.1 — 全栈 AI 生产力中枢
 
 > 用 Rust 从零构建的工业级异构 AI 引擎，**软件已达 90% 完成度，正在向全栈 IDE 生态演进**。
 >
-> **五大核心愿景（The Five Pillars）：**
+> **四大核心愿景（The Four Pillars）：**
 > - **算力平权（AI Hadoop）**：以太网连接廉价机器，AllReduce 分布式训练，打破算力垄断
 > - **硬件主权（Hardware Sovereignty）**：自研 DDR4 PCB，将大模型运行成本降低一个数量级，摆脱英伟达税
 > - **生命主权（Live Evolution）**：EWC + 双缓冲，模型在业务中自我进化，拒绝"部署即巅峰"
-> - **垂直闭环（One-Binary）**：Text2SQL 数据分析一体机，单文件交付（3.9MB），私有化部署
 > - **开发者主权（Developer Sovereignty）**：分层 IDE（SPTorch Studio），让业务人员拥有 AI，让硬件工程师指挥模型
+>
+> **能力验证（Showcase）：**
+> - **Text2SQL 一体机**：四大愿景的首个产品化验证——单二进制交付（3.9MB），私有化部署，证明框架从训练到推理到产品的完整闭环能力
 
-**核心突破**：`BACKEND_REGISTRY` 全局注册表为 **Tang 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。SPTorch 不仅是框架，更是一套**工业流水线**——愿景是底座，IDE 分层是操作台，Text2SQL 是第一个爆款产品。
+**核心突破**：`BACKEND_REGISTRY` 全局注册表为 **Tang 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。SPTorch 不仅是框架，更是一套**工业流水线**——愿景是底座，IDE 分层是操作台，Text2SQL 是第一个能力验证产品。
 
 ---
 
