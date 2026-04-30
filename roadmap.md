@@ -785,15 +785,19 @@ crates/
 - ~~真实 LoRA 微调实验~~：loss 稳步下降，merge 验证通过
 - ~~分布式训练实战~~：2 worker × 3 步 AllReduce + Barrier 全链路
 - ~~release 构建优化~~：sptorch-text2sql.exe 仅 3.9MB
+- ~~产品展示级 Demo~~：HTML UI + 纠正功能 + /correct 在线学习端点
+- ~~GPU 常驻 tensor~~：Tensor.to_device()/cuda()/cpu() 设备迁移接口
+- ~~神经化 Text2SQL~~：GPT 训练 + 生成 + server 集成 + fallback 模板匹配
+- ~~多 GPU 支持~~：DataParallel scatter/allreduce/step
+- ~~分布式高可用 Checkpoint~~：save/load_latest/resume + 自动清理
+- ~~自动纠错反馈环~~：用户修正 SQL → FeedbackLoop 增量学习
 
-### 立即行动（2 周内）
-1. **产品展示级 Demo**：单页 HTML UI + `cli-text2sql` 打包，演示 Text2SQL 全流程
-2. **GPU 常驻 tensor**：让 tensor 数据驻留 GPU（不每次 H2D/D2H），减少传输开销
-
-### 核心攻坚（1-2 个月）
-3. **神经化 Text2SQL**：LoRA 微调替代模板匹配，GPT-2 级模型 + TokenTrie 受限解码生成 SQL
-4. **多 GPU 支持**：Device::Cuda(1..N)，多卡 DataParallel
-5. **分布式高可用 Checkpoint**：异步保存 + 断点续训
+### 后续迭代方向
+1. **GPU 常驻数据**：Storage::Device 直接持有 GPU 内存，算子间零拷贝
+2. **TokenTrie 硬约束集成**：generate_constrained 替换 sampling，杜绝 SQL 幻觉
+3. **真实数据集验证**：Spider/WikiSQL 数据集上的准确率评估
+4. **ROCm/Metal 后端**：通过 hal-ffi 接入 AMD/Apple 硬件
+5. **SPTorch Studio**：Tauri 桌面应用，可视化训练/推理/Schema 管理
 
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览
