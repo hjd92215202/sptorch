@@ -1,6 +1,6 @@
-use core_ops::{add, cross_entropy_loss, matmul, scale, sum, transpose};
+use core_ops::cross_entropy_loss;
 use core_tensor::Tensor;
-use nn::{xavier_uniform, Linear, LoRALinear, Module};
+use nn::{Linear, LoRALinear, Module};
 use optim::{zero_grad, Optimizer, SGD};
 
 /// End-to-end LoRA fine-tuning test:

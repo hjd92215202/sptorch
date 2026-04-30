@@ -123,11 +123,9 @@ impl GpuAttentionGPT {
             v,
             attn_weights,
             attn_out,
-            attn_proj,
             x,
             h1_pre,
             h1,
-            ffn_out,
             out,
             logits,
         }
@@ -251,13 +249,9 @@ struct FwdCache {
     v: GpuTensor,
     attn_weights: GpuTensor,
     attn_out: GpuTensor,
-    #[allow(dead_code)]
-    attn_proj: GpuTensor,
     x: GpuTensor,
     h1_pre: GpuTensor,
     h1: GpuTensor,
-    #[allow(dead_code)]
-    ffn_out: GpuTensor,
     out: GpuTensor,
     logits: GpuTensor,
 }
