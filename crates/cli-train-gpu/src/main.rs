@@ -1,23 +1,23 @@
-use runtime_cuda::{CudaBackend, GpuTensor};
-use data::{CharTokenizer, Tokenizer, TextDataset, Dataset, DataLoader};
-use std::time::Instant;
+use data::{CharTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
 use rand::Rng;
+use runtime_cuda::{CudaBackend, GpuTensor};
+use std::time::Instant;
 
 // ============ GPU MiniGPT with Attention + Manual Backward ============
 // Architecture: Embedding -> SingleHeadAttention -> FFN(GELU) -> Residual -> LM Head
 
 struct GpuAttentionGPT {
-    tok_emb: GpuTensor,    // [vocab, d_model]
-    pos_emb: GpuTensor,    // [seq_len, d_model]
-    wq: GpuTensor,         // [d_model, d_model]
-    wk: GpuTensor,         // [d_model, d_model]
-    wv: GpuTensor,         // [d_model, d_model]
-    wo: GpuTensor,         // [d_model, d_model]
-    fc1_w: GpuTensor,      // [d_ff, d_model]
-    fc1_b: GpuTensor,      // [d_ff]
-    fc2_w: GpuTensor,      // [d_model, d_ff]
-    fc2_b: GpuTensor,      // [d_model]
-    lm_head_w: GpuTensor,  // [vocab, d_model]
+    tok_emb: GpuTensor,   // [vocab, d_model]
+    pos_emb: GpuTensor,   // [seq_len, d_model]
+    wq: GpuTensor,        // [d_model, d_model]
+    wk: GpuTensor,        // [d_model, d_model]
+    wv: GpuTensor,        // [d_model, d_model]
+    wo: GpuTensor,        // [d_model, d_model]
+    fc1_w: GpuTensor,     // [d_ff, d_model]
+    fc1_b: GpuTensor,     // [d_ff]
+    fc2_w: GpuTensor,     // [d_model, d_ff]
+    fc2_b: GpuTensor,     // [d_model]
+    lm_head_w: GpuTensor, // [vocab, d_model]
     vocab_size: usize,
     d_model: usize,
     d_ff: usize,
@@ -117,8 +117,19 @@ impl GpuAttentionGPT {
             token_ids: token_ids.to_vec(),
             positions,
             seq,
-            emb, q, k, v, attn_weights, attn_out, attn_proj,
-            x, h1_pre, h1, ffn_out, out, logits,
+            emb,
+            q,
+            k,
+            v,
+            attn_weights,
+            attn_out,
+            attn_proj,
+            x,
+            h1_pre,
+            h1,
+            ffn_out,
+            out,
+            logits,
         }
     }
 
@@ -140,7 +151,7 @@ impl GpuAttentionGPT {
 
         // --- Residual 2: out = x + ffn_out ---
         let d_x_r2 = &d_out; // [seq, d]
-        let d_ffn = &d_out;   // [seq, d]
+        let d_ffn = &d_out; // [seq, d]
 
         // --- FC2 backward: ffn_out = h1 @ fc2_w^T + fc2_b ---
         let d_h1 = backend.gpu_matmul(d_ffn, &self.fc2_w).unwrap(); // [seq, ff]
@@ -209,7 +220,9 @@ impl GpuAttentionGPT {
         let d_emb = backend.gpu_add(&d_emb, &d_emb_v).unwrap();
 
         let d_tok = backend.gpu_embedding_backward(&d_emb, &c.token_ids, v, d).unwrap();
-        let d_pos = backend.gpu_embedding_backward(&d_emb, &c.positions, self.max_seq_len, d).unwrap();
+        let d_pos = backend
+            .gpu_embedding_backward(&d_emb, &c.positions, self.max_seq_len, d)
+            .unwrap();
 
         // --- SGD updates ---
         backend.gpu_sgd_update(&mut self.lm_head_w, &d_lm, lr).unwrap();
@@ -264,12 +277,16 @@ fn gelu_backward(backend: &CudaBackend, d_out: &GpuTensor, input: &GpuTensor) ->
     let g = d_out.to_host(backend).unwrap();
     let x = input.to_host(backend).unwrap();
     let sqrt_2_pi: f32 = (2.0 / std::f32::consts::PI).sqrt();
-    let da: Vec<f32> = g.iter().zip(x.iter()).map(|(gi, &xi)| {
-        let k = sqrt_2_pi * (xi + 0.044715 * xi.powi(3));
-        let tanh_k = k.tanh();
-        let dk = sqrt_2_pi * (1.0 + 0.134145 * xi * xi);
-        gi * (0.5 * (1.0 + tanh_k) + 0.5 * xi * (1.0 - tanh_k * tanh_k) * dk)
-    }).collect();
+    let da: Vec<f32> = g
+        .iter()
+        .zip(x.iter())
+        .map(|(gi, &xi)| {
+            let k = sqrt_2_pi * (xi + 0.044715 * xi.powi(3));
+            let tanh_k = k.tanh();
+            let dk = sqrt_2_pi * (1.0 + 0.134145 * xi * xi);
+            gi * (0.5 * (1.0 + tanh_k) + 0.5 * xi * (1.0 - tanh_k * tanh_k) * dk)
+        })
+        .collect();
     GpuTensor::from_host(backend, &da, d_out.shape.clone()).unwrap()
 }
 
@@ -292,24 +309,42 @@ fn greedy_generate(backend: &CudaBackend, model: &GpuAttentionGPT, prompt: &[usi
     let vocab = model.vocab_size;
     let mut ids = prompt.to_vec();
     for _ in 0..max_new {
-        let ctx = if ids.len() > model.max_seq_len { &ids[ids.len() - model.max_seq_len..] } else { &ids };
+        let ctx = if ids.len() > model.max_seq_len {
+            &ids[ids.len() - model.max_seq_len..]
+        } else {
+            &ids
+        };
         let cache = model.forward(backend, ctx);
         let logits_host = cache.logits.to_host(backend).unwrap();
         let last = &logits_host[logits_host.len() - vocab..];
-        let next = last.iter().enumerate()
+        let next = last
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(i, _)| i).unwrap();
+            .map(|(i, _)| i)
+            .unwrap();
         ids.push(next);
     }
     ids
 }
 
-fn sampled_generate(backend: &CudaBackend, model: &GpuAttentionGPT, prompt: &[usize], max_new: usize, temp: f32, top_k: usize) -> Vec<usize> {
+fn sampled_generate(
+    backend: &CudaBackend,
+    model: &GpuAttentionGPT,
+    prompt: &[usize],
+    max_new: usize,
+    temp: f32,
+    top_k: usize,
+) -> Vec<usize> {
     let vocab = model.vocab_size;
     let mut rng = rand::thread_rng();
     let mut ids = prompt.to_vec();
     for _ in 0..max_new {
-        let ctx = if ids.len() > model.max_seq_len { &ids[ids.len() - model.max_seq_len..] } else { &ids };
+        let ctx = if ids.len() > model.max_seq_len {
+            &ids[ids.len() - model.max_seq_len..]
+        } else {
+            &ids
+        };
         let cache = model.forward(backend, ctx);
         let logits_host = cache.logits.to_host(backend).unwrap();
         let last = &logits_host[logits_host.len() - vocab..];
@@ -327,7 +362,10 @@ fn sampled_generate(backend: &CudaBackend, model: &GpuAttentionGPT, prompt: &[us
         let mut next = top[0].0;
         for (i, &p) in probs.iter().enumerate() {
             cumsum += p;
-            if r < cumsum { next = top[i].0; break; }
+            if r < cumsum {
+                next = top[i].0;
+                break;
+            }
         }
         ids.push(next);
     }
@@ -358,8 +396,13 @@ fn main() {
     let log_interval: u64 = 500;
 
     let mut model = GpuAttentionGPT::new(&backend, vocab_size, d_model, d_ff, seq_len);
-    let total_params = vocab_size * d_model * 2 + seq_len * d_model
-        + d_model * d_model * 4 + d_ff * d_model + d_ff + d_model * d_ff + d_model;
+    let total_params = vocab_size * d_model * 2
+        + seq_len * d_model
+        + d_model * d_model * 4
+        + d_ff * d_model
+        + d_ff
+        + d_model * d_ff
+        + d_model;
     println!("Model: Emb -> Attention(Q/K/V/O) -> FFN(GELU) -> Residual -> LM Head");
     println!("d_model={}, d_ff={}, params~{}", d_model, d_ff, total_params);
 
@@ -374,14 +417,18 @@ fn main() {
     while step < max_steps {
         let mut dl = DataLoader::new(&dataset, 1, true);
         while let Some((inputs_batch, targets_batch)) = dl.next_batch() {
-            if step >= max_steps { break; }
+            if step >= max_steps {
+                break;
+            }
             let input_ids = &inputs_batch[0];
             let target_ids = &targets_batch[0];
 
             let cache = model.forward(&backend, input_ids);
             let loss = model.backward_and_update(&backend, &cache, target_ids, lr);
 
-            if loss.is_nan() || loss.is_infinite() { continue; }
+            if loss.is_nan() || loss.is_infinite() {
+                continue;
+            }
             total_loss += loss;
             step += 1;
 
@@ -389,8 +436,10 @@ fn main() {
                 let avg_loss = total_loss / log_interval as f32;
                 let elapsed = start.elapsed().as_secs_f32();
                 let tps = (step as f32 * seq_len as f32) / elapsed;
-                println!("Step {}/{}: loss={:.4}, tok/s={:.0}, elapsed={:.1}s",
-                         step, max_steps, avg_loss, tps, elapsed);
+                println!(
+                    "Step {}/{}: loss={:.4}, tok/s={:.0}, elapsed={:.1}s",
+                    step, max_steps, avg_loss, tps, elapsed
+                );
                 total_loss = 0.0;
 
                 let prompt = tokenizer.encode("the ");

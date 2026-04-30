@@ -6,6 +6,6 @@
 //! - `monitor`: rolling-window loss tracking with automatic rollback on degradation
 
 pub mod double_buffer;
-pub mod incremental;
 pub mod ewc;
+pub mod incremental;
 pub mod monitor;

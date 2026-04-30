@@ -1,4 +1,4 @@
-use core_tensor::{Tensor, Op, Node};
+use core_tensor::{Node, Op, Tensor};
 use std::sync::Arc;
 
 #[derive(Debug)]

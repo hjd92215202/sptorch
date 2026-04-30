@@ -1,5 +1,8 @@
 use core_tensor::Tensor;
-use std::sync::{Arc, RwLock, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
 
 /// Double-buffered parameter store for concurrent train/inference.
 ///

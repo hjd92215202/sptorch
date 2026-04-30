@@ -8,8 +8,8 @@
 //! - Global backend registry for device-aware compute dispatch
 
 use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
 use std::fmt;
+use std::sync::{Arc, RwLock};
 use thiserror::Error;
 
 // ============ Global Backend Registry ============
@@ -94,7 +94,6 @@ pub enum DType {
     BF16,
 }
 
-
 // ============ F16/BF16 conversion utilities ============
 
 pub fn f32_to_f16(val: f32) -> u16 {
@@ -163,7 +162,9 @@ pub fn bf16_to_f32(bits: u16) -> f32 {
 pub trait DeviceBuffer: Send + Sync + fmt::Debug {
     fn device(&self) -> Device;
     fn len(&self) -> usize;
-    fn is_empty(&self) -> bool { self.len() == 0 }
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn to_host(&self) -> Vec<f32>;
     fn from_host(data: &[f32], device: Device) -> std::result::Result<Box<dyn DeviceBuffer>, String>
     where
@@ -330,9 +331,7 @@ impl Tensor {
                 // Round-trip through f16 to simulate precision loss
                 f32_data.iter().map(|&v| f16_to_f32(f32_to_f16(v))).collect()
             }
-            DType::BF16 => {
-                f32_data.iter().map(|&v| bf16_to_f32(f32_to_bf16(v))).collect()
-            }
+            DType::BF16 => f32_data.iter().map(|&v| bf16_to_f32(f32_to_bf16(v))).collect(),
         };
 
         let t = Tensor::new(stored, shape);
@@ -374,7 +373,11 @@ impl Tensor {
         let mut indices = vec![0usize; ndim];
         for _ in 0..numel {
             let physical: usize = inner.offset
-                + indices.iter().zip(inner.strides.iter()).map(|(i, s)| i * s).sum::<usize>();
+                + indices
+                    .iter()
+                    .zip(inner.strides.iter())
+                    .map(|(i, s)| i * s)
+                    .sum::<usize>();
             result.push(cpu_data[physical]);
             for d in (0..ndim).rev() {
                 indices[d] += 1;
@@ -393,7 +396,9 @@ impl Tensor {
 
     pub fn accum_grad(&self, grad_tensor: &Tensor) {
         let mut inner = self.0.write().unwrap();
-        if !inner.requires_grad { return; }
+        if !inner.requires_grad {
+            return;
+        }
 
         let incoming_data = grad_tensor.contiguous_data();
 
@@ -479,8 +484,12 @@ mod tests {
         for &v in &vals {
             let h = f32_to_f16(v);
             let back = f16_to_f32(h);
-            assert!((back - v).abs() / (v.abs() + 1e-10) < 0.01,
-                "f16 roundtrip failed for {}: got {}", v, back);
+            assert!(
+                (back - v).abs() / (v.abs() + 1e-10) < 0.01,
+                "f16 roundtrip failed for {}: got {}",
+                v,
+                back
+            );
         }
     }
 
@@ -490,8 +499,12 @@ mod tests {
         for &v in &vals {
             let b = f32_to_bf16(v);
             let back = bf16_to_f32(b);
-            assert!((back - v).abs() / (v.abs() + 1e-10) < 0.01,
-                "bf16 roundtrip failed for {}: got {}", v, back);
+            assert!(
+                (back - v).abs() / (v.abs() + 1e-10) < 0.01,
+                "bf16 roundtrip failed for {}: got {}",
+                v,
+                back
+            );
         }
     }
 

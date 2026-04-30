@@ -119,16 +119,26 @@ pub struct AdamW {
     beta2: f32,
     eps: f32,
     weight_decay: f32,
-    m: Vec<Vec<f32>>,  // first moment
-    v: Vec<Vec<f32>>,  // second moment
-    t: u64,            // step count
+    m: Vec<Vec<f32>>, // first moment
+    v: Vec<Vec<f32>>, // second moment
+    t: u64,           // step count
 }
 
 impl AdamW {
     pub fn new(params: Vec<Tensor>, lr: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32) -> Self {
         let m: Vec<Vec<f32>> = params.iter().map(|p| vec![0.0; p.numel()]).collect();
         let v: Vec<Vec<f32>> = params.iter().map(|p| vec![0.0; p.numel()]).collect();
-        AdamW { params, lr, beta1, beta2, eps, weight_decay, m, v, t: 0 }
+        AdamW {
+            params,
+            lr,
+            beta1,
+            beta2,
+            eps,
+            weight_decay,
+            m,
+            v,
+            t: 0,
+        }
     }
 
     pub fn default(params: Vec<Tensor>, lr: f32) -> Self {
@@ -216,8 +226,7 @@ impl LrScheduler for CosineScheduler {
         } else if step >= self.total_steps {
             self.min_lr
         } else {
-            let progress = (step - self.warmup_steps) as f32
-                / (self.total_steps - self.warmup_steps).max(1) as f32;
+            let progress = (step - self.warmup_steps) as f32 / (self.total_steps - self.warmup_steps).max(1) as f32;
             self.min_lr + 0.5 * (self.base_lr - self.min_lr) * (1.0 + (std::f32::consts::PI * progress).cos())
         }
     }
@@ -254,8 +263,8 @@ mod tests {
         let mut opt = SGD::new(vec![p.clone()], 0.1, 0.0);
         opt.step();
         let d = p.data();
-        assert!((d[0] - 0.99).abs() < 1e-6);  // 1.0 - 0.1*0.1
-        assert!((d[1] - 1.98).abs() < 1e-6);  // 2.0 - 0.1*0.2
+        assert!((d[0] - 0.99).abs() < 1e-6); // 1.0 - 0.1*0.1
+        assert!((d[1] - 1.98).abs() < 1e-6); // 2.0 - 0.1*0.2
     }
 
     #[test]

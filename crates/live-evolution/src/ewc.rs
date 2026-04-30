@@ -22,15 +22,15 @@ impl EWC {
     /// `params` are the trained parameters, `grads` are gradients from a
     /// representative forward pass on the old task data.
     pub fn new(params: &[Tensor], grads: &[Vec<f32>], lambda: f32) -> Self {
-        let param_snapshot: Vec<Vec<f32>> = params.iter()
-            .map(|p| p.contiguous_data())
-            .collect();
+        let param_snapshot: Vec<Vec<f32>> = params.iter().map(|p| p.contiguous_data()).collect();
 
-        let fisher_diag: Vec<Vec<f32>> = grads.iter()
-            .map(|g| g.iter().map(|v| v * v).collect())
-            .collect();
+        let fisher_diag: Vec<Vec<f32>> = grads.iter().map(|g| g.iter().map(|v| v * v).collect()).collect();
 
-        EWC { param_snapshot, fisher_diag, lambda }
+        EWC {
+            param_snapshot,
+            fisher_diag,
+            lambda,
+        }
     }
 
     /// Compute the EWC penalty: (lambda/2) * sum_i F_i * (theta_i - theta_star_i)^2
@@ -51,14 +51,20 @@ impl EWC {
     /// Compute EWC gradient contribution for each parameter.
     /// Returns: lambda * F_i * (theta_i - theta_star_i) for each param.
     pub fn penalty_grads(&self, current_params: &[Tensor]) -> Vec<Vec<f32>> {
-        current_params.iter().enumerate().map(|(i, param)| {
-            let current = param.contiguous_data();
-            let snapshot = &self.param_snapshot[i];
-            let fisher = &self.fisher_diag[i];
-            current.iter().enumerate().map(|(j, &c)| {
-                self.lambda * fisher[j] * (c - snapshot[j])
-            }).collect()
-        }).collect()
+        current_params
+            .iter()
+            .enumerate()
+            .map(|(i, param)| {
+                let current = param.contiguous_data();
+                let snapshot = &self.param_snapshot[i];
+                let fisher = &self.fisher_diag[i];
+                current
+                    .iter()
+                    .enumerate()
+                    .map(|(j, &c)| self.lambda * fisher[j] * (c - snapshot[j]))
+                    .collect()
+            })
+            .collect()
     }
 
     /// Apply EWC penalty gradients to existing parameter gradients (in-place addition).
@@ -92,10 +98,7 @@ mod tests {
             Tensor::new(vec![1.0, 2.0, 3.0], vec![3]),
             Tensor::new(vec![4.0, 5.0], vec![2]),
         ];
-        let grads = vec![
-            vec![0.1, 0.2, 0.3],
-            vec![0.4, 0.5],
-        ];
+        let grads = vec![vec![0.1, 0.2, 0.3], vec![0.4, 0.5]];
         let ewc = EWC::new(&params, &grads, 1.0);
 
         // At the snapshot point, penalty should be zero

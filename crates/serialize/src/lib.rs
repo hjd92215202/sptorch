@@ -1,6 +1,6 @@
 use core_tensor::Tensor;
-use std::io::{self, Read, Write, BufReader, BufWriter};
 use std::fs::File;
+use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 pub mod safetensors;
@@ -53,15 +53,23 @@ pub fn load_checkpoint<P: AsRef<Path>>(path: P, params: &[Tensor]) -> io::Result
     r.read_exact(&mut buf4)?;
     let version = u32::from_le_bytes(buf4);
     if version != VERSION {
-        return Err(io::Error::new(io::ErrorKind::InvalidData,
-            format!("unsupported checkpoint version {}", version)));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("unsupported checkpoint version {}", version),
+        ));
     }
 
     r.read_exact(&mut buf4)?;
     let num_params = u32::from_le_bytes(buf4) as usize;
     if num_params != params.len() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData,
-            format!("param count mismatch: checkpoint has {}, model has {}", num_params, params.len())));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "param count mismatch: checkpoint has {}, model has {}",
+                num_params,
+                params.len()
+            ),
+        ));
     }
 
     for (i, p) in params.iter().enumerate() {
@@ -76,8 +84,13 @@ pub fn load_checkpoint<P: AsRef<Path>>(path: P, params: &[Tensor]) -> io::Result
 
         let expected_shape = p.shape();
         if shape != expected_shape {
-            return Err(io::Error::new(io::ErrorKind::InvalidData,
-                format!("shape mismatch at param[{}]: checkpoint {:?}, model {:?}", i, shape, expected_shape)));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "shape mismatch at param[{}]: checkpoint {:?}, model {:?}",
+                    i, shape, expected_shape
+                ),
+            ));
         }
 
         let numel: usize = shape.iter().product();

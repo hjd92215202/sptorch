@@ -1,7 +1,7 @@
+use core_ops::{add, cross_entropy_loss, matmul, scale, sum, transpose};
 use core_tensor::Tensor;
-use core_ops::{cross_entropy_loss, matmul, transpose, add, scale, sum};
-use nn::{Linear, LoRALinear, Module, xavier_uniform};
-use optim::{SGD, Optimizer, zero_grad};
+use nn::{xavier_uniform, Linear, LoRALinear, Module};
+use optim::{zero_grad, Optimizer, SGD};
 
 /// End-to-end LoRA fine-tuning test:
 /// Build a tiny model, wrap its linear layers with LoRA, train on synthetic data,
@@ -61,8 +61,12 @@ fn test_lora_finetune_loss_decreases() {
     // Verify loss decreased
     let first_loss = losses[0];
     let last_loss = losses[losses.len() - 1];
-    assert!(last_loss < first_loss,
-        "LoRA fine-tuning should decrease loss: first={:.4} last={:.4}", first_loss, last_loss);
+    assert!(
+        last_loss < first_loss,
+        "LoRA fine-tuning should decrease loss: first={:.4} last={:.4}",
+        first_loss,
+        last_loss
+    );
 
     // Verify LoRA adapters were actually updated during training
     let b_data = lora1.lora_b.data();

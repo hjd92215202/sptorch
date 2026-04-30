@@ -5,8 +5,8 @@
 //! - `TokenTrie` + `TokenConstraint` for constrained decoding
 //! - `generate_greedy`, `generate_with_sampling`, `generate_constrained`
 
-use core_tensor::Tensor;
 use core_ops::*;
+use core_tensor::Tensor;
 use rand::Rng;
 
 // ============ Module Trait ============
@@ -21,9 +21,7 @@ pub trait Module: Send + Sync {
 pub fn xavier_uniform(rows: usize, cols: usize) -> Tensor {
     let mut rng = rand::thread_rng();
     let limit = (6.0 / (rows + cols) as f32).sqrt();
-    let data: Vec<f32> = (0..rows * cols)
-        .map(|_| rng.gen_range(-limit..limit))
-        .collect();
+    let data: Vec<f32> = (0..rows * cols).map(|_| rng.gen_range(-limit..limit)).collect();
     Tensor::with_grad(data, vec![rows, cols], true)
 }
 
@@ -48,18 +46,14 @@ fn zeros_grad(size: usize) -> Tensor {
 // ============ Linear ============
 
 pub struct Linear {
-    pub weight: Tensor, // [out_features, in_features]
+    pub weight: Tensor,       // [out_features, in_features]
     pub bias: Option<Tensor>, // [out_features]
 }
 
 impl Linear {
     pub fn new(in_features: usize, out_features: usize, use_bias: bool) -> Self {
         let weight = xavier_uniform(out_features, in_features);
-        let bias = if use_bias {
-            Some(zeros_grad(out_features))
-        } else {
-            None
-        };
+        let bias = if use_bias { Some(zeros_grad(out_features)) } else { None };
         Linear { weight, bias }
     }
 }
@@ -118,7 +112,13 @@ impl LoRALinear {
         let lora_a = kaiming_normal(rank, in_features);
         let lora_b = Tensor::with_grad(vec![0.0; out_features * rank], vec![out_features, rank], true);
 
-        LoRALinear { base, lora_a, lora_b, alpha, rank }
+        LoRALinear {
+            base,
+            lora_a,
+            lora_b,
+            alpha,
+            rank,
+        }
     }
 
     /// Create LoRA from scratch (new Linear + LoRA adapters).
@@ -136,8 +136,8 @@ impl Module for LoRALinear {
         // LoRA: x @ A^T @ B^T * (alpha / rank)
         let at = transpose(&self.lora_a);
         let bt = transpose(&self.lora_b);
-        let xa = matmul(input, &at);   // [batch, rank]
-        let xab = matmul(&xa, &bt);    // [batch, out_features]
+        let xa = matmul(input, &at); // [batch, rank]
+        let xab = matmul(&xa, &bt); // [batch, out_features]
         let scaling = self.alpha / self.rank as f32;
         let lora_out = scale(&xab, scaling);
 
@@ -325,8 +325,12 @@ impl core_tensor::Op for LayerNormOp {
                 g_hat[i] = g[off + i] * self.gamma[i];
             }
             let g_hat_mean: f32 = g_hat.iter().sum::<f32>() / dim as f32;
-            let g_hat_norm_mean: f32 = g_hat.iter().zip(self.normalized[off..off+dim].iter())
-                .map(|(gh, n)| gh * n).sum::<f32>() / dim as f32;
+            let g_hat_norm_mean: f32 = g_hat
+                .iter()
+                .zip(self.normalized[off..off + dim].iter())
+                .map(|(gh, n)| gh * n)
+                .sum::<f32>()
+                / dim as f32;
 
             for i in 0..dim {
                 d_input[off + i] = inv_std * (g_hat[i] - g_hat_mean - self.normalized[off + i] * g_hat_norm_mean);
@@ -438,8 +442,7 @@ fn reshape_to_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize) 
     for s in 0..seq_len {
         for h in 0..n_head {
             for d in 0..head_dim {
-                out[h * seq_len * head_dim + s * head_dim + d] =
-                    data[s * d_model + h * head_dim + d];
+                out[h * seq_len * head_dim + s * head_dim + d] = data[s * d_model + h * head_dim + d];
             }
         }
     }
@@ -450,7 +453,11 @@ fn reshape_to_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize) 
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
         inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
-            op: Box::new(ReshapeToHeadsOp { seq_len, n_head, head_dim }),
+            op: Box::new(ReshapeToHeadsOp {
+                seq_len,
+                n_head,
+                head_dim,
+            }),
             inputs: vec![x.clone()],
         }));
     }
@@ -491,8 +498,7 @@ fn reshape_from_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize
     for s in 0..seq_len {
         for h in 0..n_head {
             for d in 0..head_dim {
-                out[s * d_model + h * head_dim + d] =
-                    data[h * seq_len * head_dim + s * head_dim + d];
+                out[s * d_model + h * head_dim + d] = data[h * seq_len * head_dim + s * head_dim + d];
             }
         }
     }
@@ -503,7 +509,11 @@ fn reshape_from_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
         inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
-            op: Box::new(ReshapeFromHeadsOp { seq_len, n_head, head_dim }),
+            op: Box::new(ReshapeFromHeadsOp {
+                seq_len,
+                n_head,
+                head_dim,
+            }),
             inputs: vec![x.clone()],
         }));
     }
@@ -645,14 +655,7 @@ pub struct GPT {
 }
 
 impl GPT {
-    pub fn new(
-        vocab_size: usize,
-        d_model: usize,
-        n_head: usize,
-        n_layer: usize,
-        d_ff: usize,
-        seq_len: usize,
-    ) -> Self {
+    pub fn new(vocab_size: usize, d_model: usize, n_head: usize, n_layer: usize, d_ff: usize, seq_len: usize) -> Self {
         let blocks = (0..n_layer)
             .map(|_| TransformerBlock::new(d_model, n_head, d_ff))
             .collect();
@@ -703,13 +706,20 @@ impl GPT {
 pub fn generate_greedy(model: &GPT, prompt: &[usize], max_new_tokens: usize, vocab_size: usize) -> Vec<usize> {
     let mut ids = prompt.to_vec();
     for _ in 0..max_new_tokens {
-        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let ctx = if ids.len() > model.seq_len {
+            &ids[ids.len() - model.seq_len..]
+        } else {
+            &ids
+        };
         let logits = model.forward_ids(ctx);
         let logits_data = logits.contiguous_data();
         let last = &logits_data[logits_data.len() - vocab_size..];
-        let next = last.iter().enumerate()
+        let next = last
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(i, _)| i).unwrap();
+            .map(|(i, _)| i)
+            .unwrap();
         ids.push(next);
     }
     ids
@@ -728,7 +738,11 @@ pub fn generate_with_sampling(
     let mut ids = prompt.to_vec();
 
     for _ in 0..max_new_tokens {
-        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let ctx = if ids.len() > model.seq_len {
+            &ids[ids.len() - model.seq_len..]
+        } else {
+            &ids
+        };
         let logits = model.forward_ids(ctx);
         let logits_data = logits.contiguous_data();
         let last = &logits_data[logits_data.len() - vocab_size..];
@@ -847,7 +861,11 @@ pub fn generate_constrained(
     let prompt_len = prompt.len();
 
     for _ in 0..max_new_tokens {
-        let ctx = if ids.len() > model.seq_len { &ids[ids.len() - model.seq_len..] } else { &ids };
+        let ctx = if ids.len() > model.seq_len {
+            &ids[ids.len() - model.seq_len..]
+        } else {
+            &ids
+        };
         let logits = model.forward_ids(ctx);
         let logits_data = logits.contiguous_data();
         let last = &logits_data[logits_data.len() - vocab_size..];
@@ -869,7 +887,9 @@ pub fn generate_constrained(
         let scaled: Vec<f32> = masked.iter().map(|x| x / temperature.max(1e-8)).collect();
 
         // Top-k filtering
-        let mut indexed: Vec<(usize, f32)> = scaled.iter().enumerate()
+        let mut indexed: Vec<(usize, f32)> = scaled
+            .iter()
+            .enumerate()
             .filter(|(_, &v)| v.is_finite())
             .map(|(i, &v)| (i, v))
             .collect();
@@ -1032,16 +1052,30 @@ mod tests {
         loss.backward();
         // Check that gradients exist on parameters
         let param_names = [
-            "token_emb", "pos_emb",
-            "ln1_gamma", "ln1_beta",
-            "wq", "wk", "wv", "wo",
-            "ln2_gamma", "ln2_beta",
-            "ffn_up_w", "ffn_up_b", "ffn_down_w", "ffn_down_b",
-            "ln_f_gamma", "ln_f_beta",
+            "token_emb",
+            "pos_emb",
+            "ln1_gamma",
+            "ln1_beta",
+            "wq",
+            "wk",
+            "wv",
+            "wo",
+            "ln2_gamma",
+            "ln2_beta",
+            "ffn_up_w",
+            "ffn_up_b",
+            "ffn_down_w",
+            "ffn_down_b",
+            "ln_f_gamma",
+            "ln_f_beta",
             "lm_head",
         ];
         for (i, p) in gpt.parameters().iter().enumerate() {
-            let name = if i < param_names.len() { param_names[i] } else { "unknown" };
+            let name = if i < param_names.len() {
+                param_names[i]
+            } else {
+                "unknown"
+            };
             assert!(p.grad().is_some(), "param[{}] '{}' has no gradient", i, name);
         }
     }
@@ -1100,8 +1134,13 @@ mod tests {
 
         let out_data = lora_out.data();
         for i in 0..6 {
-            assert!((out_data[i] - expected[i]).abs() < 1e-5,
-                "mismatch at {}: got {} expected {}", i, out_data[i], expected[i]);
+            assert!(
+                (out_data[i] - expected[i]).abs() < 1e-5,
+                "mismatch at {}: got {} expected {}",
+                i,
+                out_data[i],
+                expected[i]
+            );
         }
     }
 

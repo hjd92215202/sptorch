@@ -1,5 +1,5 @@
-use crate::proto::*;
 use crate::proto::node_service_client::NodeServiceClient;
+use crate::proto::*;
 use tonic::transport::Channel;
 
 /// A worker node that connects to the coordinator for distributed training.

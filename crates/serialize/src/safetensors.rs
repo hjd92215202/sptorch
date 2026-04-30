@@ -45,8 +45,12 @@ impl SafeTensorsFile {
                 continue;
             }
 
-            let info: TensorInfo = serde_json::from_value(value.clone())
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("bad tensor info for '{}': {}", name, e)))?;
+            let info: TensorInfo = serde_json::from_value(value.clone()).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("bad tensor info for '{}': {}", name, e),
+                )
+            })?;
 
             let tensor_bytes = &bytes[data_start + info.data_offsets[0]..data_start + info.data_offsets[1]];
             let data = convert_to_f32(&info.dtype, tensor_bytes)?;
@@ -73,7 +77,10 @@ impl SafeTensorsFile {
     pub fn load_into(&self, params: &[Tensor], mapping: &[(usize, &str)]) -> io::Result<()> {
         for &(idx, name) in mapping {
             let src = self.tensors.get(name).ok_or_else(|| {
-                io::Error::new(io::ErrorKind::NotFound, format!("tensor '{}' not found in safetensors", name))
+                io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("tensor '{}' not found in safetensors", name),
+                )
             })?;
 
             let src_data = src.data();
@@ -82,8 +89,13 @@ impl SafeTensorsFile {
             let src_shape = src.shape();
 
             if param_shape != src_shape {
-                return Err(io::Error::new(io::ErrorKind::InvalidData,
-                    format!("shape mismatch for '{}': safetensors {:?}, model {:?}", name, src_shape, param_shape)));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "shape mismatch for '{}': safetensors {:?}, model {:?}",
+                        name, src_shape, param_shape
+                    ),
+                ));
             }
 
             let inner = param.0.read().unwrap();
@@ -100,7 +112,8 @@ fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
             if !bytes.len().is_multiple_of(4) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "F32 data not aligned"));
             }
-            Ok(bytes.chunks_exact(4)
+            Ok(bytes
+                .chunks_exact(4)
                 .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
                 .collect())
         }
@@ -108,7 +121,8 @@ fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
             if !bytes.len().is_multiple_of(2) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "F16 data not aligned"));
             }
-            Ok(bytes.chunks_exact(2)
+            Ok(bytes
+                .chunks_exact(2)
                 .map(|c| {
                     let bits = u16::from_le_bytes(c.try_into().unwrap());
                     f16_to_f32(bits)
@@ -119,14 +133,18 @@ fn convert_to_f32(dtype: &str, bytes: &[u8]) -> io::Result<Vec<f32>> {
             if !bytes.len().is_multiple_of(2) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "BF16 data not aligned"));
             }
-            Ok(bytes.chunks_exact(2)
+            Ok(bytes
+                .chunks_exact(2)
                 .map(|c| {
                     let bits = u16::from_le_bytes(c.try_into().unwrap());
                     bf16_to_f32(bits)
                 })
                 .collect())
         }
-        _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("unsupported dtype: {}", dtype))),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("unsupported dtype: {}", dtype),
+        )),
     }
 }
 
@@ -194,10 +212,7 @@ mod tests {
 
     #[test]
     fn test_convert_f32() {
-        let data: Vec<u8> = vec![1.0f32, 2.0, 3.0]
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect();
+        let data: Vec<u8> = vec![1.0f32, 2.0, 3.0].iter().flat_map(|f| f.to_le_bytes()).collect();
         let result = convert_to_f32("F32", &data).unwrap();
         assert_eq!(result, vec![1.0, 2.0, 3.0]);
     }

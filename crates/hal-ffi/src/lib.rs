@@ -20,12 +20,34 @@ type CopyH2DFn = unsafe extern "C" fn(host: *const f32, device: *mut std::ffi::c
 type CopyD2HFn = unsafe extern "C" fn(device: *const std::ffi::c_void, host: *mut f32, n: usize) -> i32;
 type SyncFn = unsafe extern "C" fn() -> i32;
 
-type BinaryOpFn = unsafe extern "C" fn(a: *const std::ffi::c_void, b: *const std::ffi::c_void, out: *mut std::ffi::c_void, n: usize) -> i32;
+type BinaryOpFn = unsafe extern "C" fn(
+    a: *const std::ffi::c_void,
+    b: *const std::ffi::c_void,
+    out: *mut std::ffi::c_void,
+    n: usize,
+) -> i32;
 type UnaryOpFn = unsafe extern "C" fn(a: *const std::ffi::c_void, out: *mut std::ffi::c_void, n: usize) -> i32;
-type ScaleOpFn = unsafe extern "C" fn(a: *const std::ffi::c_void, scalar: f32, out: *mut std::ffi::c_void, n: usize) -> i32;
-type MatmulFn = unsafe extern "C" fn(a: *const std::ffi::c_void, b: *const std::ffi::c_void, out: *mut std::ffi::c_void, m: usize, k: usize, n: usize) -> i32;
-type BatchMatmulFn = unsafe extern "C" fn(a: *const std::ffi::c_void, b: *const std::ffi::c_void, out: *mut std::ffi::c_void, batch: usize, m: usize, k: usize, n: usize) -> i32;
-type SoftmaxFn = unsafe extern "C" fn(a: *const std::ffi::c_void, out: *mut std::ffi::c_void, rows: usize, cols: usize) -> i32;
+type ScaleOpFn =
+    unsafe extern "C" fn(a: *const std::ffi::c_void, scalar: f32, out: *mut std::ffi::c_void, n: usize) -> i32;
+type MatmulFn = unsafe extern "C" fn(
+    a: *const std::ffi::c_void,
+    b: *const std::ffi::c_void,
+    out: *mut std::ffi::c_void,
+    m: usize,
+    k: usize,
+    n: usize,
+) -> i32;
+type BatchMatmulFn = unsafe extern "C" fn(
+    a: *const std::ffi::c_void,
+    b: *const std::ffi::c_void,
+    out: *mut std::ffi::c_void,
+    batch: usize,
+    m: usize,
+    k: usize,
+    n: usize,
+) -> i32;
+type SoftmaxFn =
+    unsafe extern "C" fn(a: *const std::ffi::c_void, out: *mut std::ffi::c_void, rows: usize, cols: usize) -> i32;
 
 /// Opaque device-side buffer handle returned by the external backend.
 pub struct FfiDeviceBuffer {
@@ -71,7 +93,9 @@ impl core_tensor::DeviceBuffer for FfiDeviceBuffer {
 impl Drop for FfiDeviceBuffer {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            unsafe { (self.backend.free)(self.ptr); }
+            unsafe {
+                (self.backend.free)(self.ptr);
+            }
         }
     }
 }
@@ -103,7 +127,9 @@ unsafe impl Sync for FfiBackendInner {}
 
 impl Drop for FfiBackendInner {
     fn drop(&mut self) {
-        unsafe { (self.shutdown)(); }
+        unsafe {
+            (self.shutdown)();
+        }
     }
 }
 
@@ -114,7 +140,9 @@ pub struct FfiBackend {
 
 macro_rules! load_sym {
     ($lib:expr, $name:expr) => {
-        **$lib.get::<Symbol<_>>($name).map_err(|e| format!("missing symbol {}: {}", String::from_utf8_lossy($name), e))?
+        **$lib
+            .get::<Symbol<_>>($name)
+            .map_err(|e| format!("missing symbol {}: {}", String::from_utf8_lossy($name), e))?
     };
 }
 
@@ -124,8 +152,7 @@ impl FfiBackend {
     /// The library must export all `sptorch_*` symbols defined in `sptorch_hal.h`.
     pub fn load<P: AsRef<Path>>(path: P) -> std::result::Result<Self, String> {
         unsafe {
-            let lib = Library::new(path.as_ref())
-                .map_err(|e| format!("failed to load library: {}", e))?;
+            let lib = Library::new(path.as_ref()).map_err(|e| format!("failed to load library: {}", e))?;
 
             let init: InitFn = load_sym!(lib, b"sptorch_backend_init\0");
             let rc = init();
@@ -167,20 +194,32 @@ impl FfiBackend {
         }
         let rc = unsafe { (self.inner.copy_h2d)(data.as_ptr(), ptr, data.len()) };
         if rc != 0 {
-            unsafe { (self.inner.free)(ptr); }
+            unsafe {
+                (self.inner.free)(ptr);
+            }
             return Err(format!("h2d copy failed with code {}", rc));
         }
-        Ok(FfiDeviceBuffer { ptr, len: data.len(), backend: self.inner.clone() })
+        Ok(FfiDeviceBuffer {
+            ptr,
+            len: data.len(),
+            backend: self.inner.clone(),
+        })
     }
 
     fn run_unary(&self, a: &[f32], op: UnaryOpFn) -> Vec<f32> {
         let n = a.len();
         let a_buf = self.upload(a).expect("upload failed");
         let o_ptr = unsafe { (self.inner.alloc)(n) };
-        unsafe { op(a_buf.ptr, o_ptr, n); }
+        unsafe {
+            op(a_buf.ptr, o_ptr, n);
+        }
         let mut out = vec![0.0f32; n];
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
         out
     }
 
@@ -189,10 +228,16 @@ impl FfiBackend {
         let a_buf = self.upload(a).expect("upload failed");
         let b_buf = self.upload(b).expect("upload failed");
         let o_ptr = unsafe { (self.inner.alloc)(n) };
-        unsafe { op(a_buf.ptr, b_buf.ptr, o_ptr, n); }
+        unsafe {
+            op(a_buf.ptr, b_buf.ptr, o_ptr, n);
+        }
         let mut out = vec![0.0f32; n];
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
         out
     }
 }
@@ -206,7 +251,10 @@ impl Backend for FfiBackend {
     }
 
     fn device_id(&self) -> DeviceId {
-        DeviceId { backend: self.name().to_string(), ordinal: 0 }
+        DeviceId {
+            backend: self.name().to_string(),
+            ordinal: 0,
+        }
     }
 
     fn allocate(&self, size: usize) -> HalResult<RawBuffer> {
@@ -275,18 +323,30 @@ impl KernelProvider for FfiBackend {
         let n = a.len();
         let a_buf = self.upload(a).expect("upload failed");
         let o_ptr = unsafe { (self.inner.alloc)(n) };
-        unsafe { (self.inner.scale)(a_buf.ptr, scalar, o_ptr, n); }
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.scale)(a_buf.ptr, scalar, o_ptr, n);
+        }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
     }
 
     fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize) {
         let a_buf = self.upload(a).expect("upload failed");
         let b_buf = self.upload(b).expect("upload failed");
         let o_ptr = unsafe { (self.inner.alloc)(m * n) };
-        unsafe { (self.inner.matmul)(a_buf.ptr, b_buf.ptr, o_ptr, m, k, n); }
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), m * n); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.matmul)(a_buf.ptr, b_buf.ptr, o_ptr, m, k, n);
+        }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), m * n);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
     }
 
     fn batch_matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], batch: usize, m: usize, k: usize, n: usize) {
@@ -294,9 +354,15 @@ impl KernelProvider for FfiBackend {
         let b_buf = self.upload(b).expect("upload failed");
         let total = batch * m * n;
         let o_ptr = unsafe { (self.inner.alloc)(total) };
-        unsafe { (self.inner.batch_matmul)(a_buf.ptr, b_buf.ptr, o_ptr, batch, m, k, n); }
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), total); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.batch_matmul)(a_buf.ptr, b_buf.ptr, o_ptr, batch, m, k, n);
+        }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), total);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
     }
 
     fn sum_f32(&self, a: &[f32]) -> f32 {
@@ -307,9 +373,15 @@ impl KernelProvider for FfiBackend {
         let n = rows * cols;
         let a_buf = self.upload(a).expect("upload failed");
         let o_ptr = unsafe { (self.inner.alloc)(n) };
-        unsafe { (self.inner.softmax)(a_buf.ptr, o_ptr, rows, cols); }
-        unsafe { (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n); }
-        unsafe { (self.inner.free)(o_ptr); }
+        unsafe {
+            (self.inner.softmax)(a_buf.ptr, o_ptr, rows, cols);
+        }
+        unsafe {
+            (self.inner.copy_d2h)(o_ptr, out.as_mut_ptr(), n);
+        }
+        unsafe {
+            (self.inner.free)(o_ptr);
+        }
     }
 
     fn masked_fill_f32(&self, a: &[f32], mask: &[bool], fill_value: f32, out: &mut [f32]) {

@@ -65,10 +65,7 @@ async fn test_barrier_sync() {
     let mut w2 = Worker::connect("127.0.0.1:50053", "w1", 2).await.unwrap();
 
     // Both workers hit barrier at step 1
-    let (r1, r2) = tokio::join!(
-        w1.barrier(1),
-        w2.barrier(1),
-    );
+    let (r1, r2) = tokio::join!(w1.barrier(1), w2.barrier(1),);
 
     r1.unwrap();
     r2.unwrap();

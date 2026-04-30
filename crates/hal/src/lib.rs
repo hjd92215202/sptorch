@@ -15,11 +15,17 @@ pub struct DeviceId {
 
 impl DeviceId {
     pub fn cpu() -> Self {
-        DeviceId { backend: "cpu".into(), ordinal: 0 }
+        DeviceId {
+            backend: "cpu".into(),
+            ordinal: 0,
+        }
     }
 
     pub fn cuda(ordinal: usize) -> Self {
-        DeviceId { backend: "cuda".into(), ordinal }
+        DeviceId {
+            backend: "cuda".into(),
+            ordinal,
+        }
     }
 }
 
@@ -132,7 +138,9 @@ pub trait KernelProvider: Backend {
 pub struct CpuBackend;
 
 impl Backend for CpuBackend {
-    fn name(&self) -> &str { "cpu" }
+    fn name(&self) -> &str {
+        "cpu"
+    }
 
     fn device_id(&self) -> DeviceId {
         DeviceId::cpu()
@@ -155,7 +163,9 @@ impl Backend for CpuBackend {
         Ok(())
     }
 
-    fn synchronize(&self) -> HalResult<()> { Ok(()) }
+    fn synchronize(&self) -> HalResult<()> {
+        Ok(())
+    }
 }
 
 impl KernelProvider for CpuBackend {
@@ -228,7 +238,14 @@ impl KernelProvider for CpuBackend {
             let a_off = bi * a_stride;
             let b_off = bi * b_stride;
             let o_off = bi * o_stride;
-            self.matmul_f32(&a[a_off..a_off + a_stride], &b[b_off..b_off + b_stride], &mut out[o_off..o_off + o_stride], m, k, n);
+            self.matmul_f32(
+                &a[a_off..a_off + a_stride],
+                &b[b_off..b_off + b_stride],
+                &mut out[o_off..o_off + o_stride],
+                m,
+                k,
+                n,
+            );
         }
     }
 
@@ -415,8 +432,8 @@ mod tests {
     fn test_cpu_backend_batch_matmul() {
         let backend = CpuBackend;
         // batch=2, [2,2] @ [2,2]
-        let a = vec![1.0, 2.0, 3.0, 4.0,  5.0, 6.0, 7.0, 8.0];
-        let b = vec![1.0, 0.0, 0.0, 1.0,  1.0, 0.0, 0.0, 1.0]; // identity
+        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let b = vec![1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0]; // identity
         let mut out = vec![0.0f32; 8];
         backend.batch_matmul_f32(&a, &b, &mut out, 2, 2, 2, 2);
         assert_eq!(out, a);
@@ -436,7 +453,7 @@ mod tests {
     fn test_cpu_backend_embedding() {
         let backend = CpuBackend;
         // vocab=3, dim=2
-        let weight = vec![0.1, 0.2,  0.3, 0.4,  0.5, 0.6];
+        let weight = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
         let indices = vec![2, 0, 1];
         let mut out = vec![0.0f32; 6];
         backend.embedding_lookup_f32(&weight, &indices, &mut out, 3, 2);

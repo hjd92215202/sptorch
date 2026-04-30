@@ -14,7 +14,11 @@ fn mock_npu_path() -> PathBuf {
 
 fn load_mock() -> FfiBackend {
     let path = mock_npu_path();
-    assert!(path.exists(), "mock_npu.dll not found at {:?}. Run `cargo build -p mock-npu` first.", path);
+    assert!(
+        path.exists(),
+        "mock_npu.dll not found at {:?}. Run `cargo build -p mock-npu` first.",
+        path
+    );
     FfiBackend::load(&path).expect("failed to load mock NPU backend")
 }
 

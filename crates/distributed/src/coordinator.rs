@@ -1,5 +1,5 @@
-use crate::proto::*;
 use crate::proto::node_service_server::{NodeService, NodeServiceServer};
+use crate::proto::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
@@ -45,10 +45,7 @@ impl CoordinatorService {
 
 #[tonic::async_trait]
 impl NodeService for CoordinatorService {
-    async fn heartbeat(
-        &self,
-        _request: Request<HeartbeatRequest>,
-    ) -> Result<Response<HeartbeatResponse>, Status> {
+    async fn heartbeat(&self, _request: Request<HeartbeatRequest>) -> Result<Response<HeartbeatResponse>, Status> {
         let state = self.state.lock().await;
         Ok(Response::new(HeartbeatResponse {
             alive: true,
@@ -56,10 +53,7 @@ impl NodeService for CoordinatorService {
         }))
     }
 
-    async fn register(
-        &self,
-        request: Request<RegisterRequest>,
-    ) -> Result<Response<RegisterResponse>, Status> {
+    async fn register(&self, request: Request<RegisterRequest>) -> Result<Response<RegisterResponse>, Status> {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
         let rank = state.peers.len() as u32;
@@ -72,10 +66,7 @@ impl NodeService for CoordinatorService {
         }))
     }
 
-    async fn all_reduce_gradients(
-        &self,
-        request: Request<GradientChunk>,
-    ) -> Result<Response<GradientChunk>, Status> {
+    async fn all_reduce_gradients(&self, request: Request<GradientChunk>) -> Result<Response<GradientChunk>, Status> {
         let req = request.into_inner();
         let param_idx = req.param_index;
         let world_size = req.world_size;
@@ -85,7 +76,10 @@ impl NodeService for CoordinatorService {
         // Accumulate
         {
             let mut state = self.state.lock().await;
-            let accum = state.grad_accum.entry(param_idx).or_insert_with(|| vec![0.0; local_grads.len()]);
+            let accum = state
+                .grad_accum
+                .entry(param_idx)
+                .or_insert_with(|| vec![0.0; local_grads.len()]);
             for (a, g) in accum.iter_mut().zip(local_grads.iter()) {
                 *a += g;
             }
@@ -117,10 +111,7 @@ impl NodeService for CoordinatorService {
         }
     }
 
-    async fn barrier(
-        &self,
-        request: Request<BarrierRequest>,
-    ) -> Result<Response<BarrierResponse>, Status> {
+    async fn barrier(&self, request: Request<BarrierRequest>) -> Result<Response<BarrierResponse>, Status> {
         let req = request.into_inner();
 
         {
@@ -158,13 +149,13 @@ fn f32_to_bytes(data: &[f32]) -> Vec<u8> {
 }
 
 /// Start the coordinator gRPC server.
-pub async fn start_coordinator(
-    addr: &str,
-    world_size: u32,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_coordinator(addr: &str, world_size: u32) -> Result<(), Box<dyn std::error::Error>> {
     let addr = addr.parse()?;
     let service = CoordinatorService::new(world_size);
-    eprintln!("[sptorch] coordinator listening on {} (world_size={})", addr, world_size);
+    eprintln!(
+        "[sptorch] coordinator listening on {} (world_size={})",
+        addr, world_size
+    );
     tonic::transport::Server::builder()
         .add_service(service.into_server())
         .serve(addr)

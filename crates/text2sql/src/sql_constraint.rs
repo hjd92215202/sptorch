@@ -1,15 +1,66 @@
-use crate::schema::{TableSchema, ColumnSchema};
+use crate::schema::{ColumnSchema, TableSchema};
 
 /// SQL keyword whitelist for constrained generation.
 const SQL_KEYWORDS: &[&str] = &[
-    "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "IN", "BETWEEN",
-    "LIKE", "IS", "NULL", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER",
-    "ON", "GROUP", "BY", "ORDER", "ASC", "DESC", "HAVING", "LIMIT",
-    "OFFSET", "AS", "COUNT", "SUM", "AVG", "MIN", "MAX", "DISTINCT",
-    "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "CREATE",
-    "TABLE", "DROP", "ALTER", "ADD", "COLUMN", "INDEX", "PRIMARY",
-    "KEY", "FOREIGN", "REFERENCES", "CASE", "WHEN", "THEN", "ELSE",
-    "END", "UNION", "ALL", "EXISTS", "CAST", "COALESCE",
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "AND",
+    "OR",
+    "NOT",
+    "IN",
+    "BETWEEN",
+    "LIKE",
+    "IS",
+    "NULL",
+    "JOIN",
+    "LEFT",
+    "RIGHT",
+    "INNER",
+    "OUTER",
+    "ON",
+    "GROUP",
+    "BY",
+    "ORDER",
+    "ASC",
+    "DESC",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "AS",
+    "COUNT",
+    "SUM",
+    "AVG",
+    "MIN",
+    "MAX",
+    "DISTINCT",
+    "INSERT",
+    "INTO",
+    "VALUES",
+    "UPDATE",
+    "SET",
+    "DELETE",
+    "CREATE",
+    "TABLE",
+    "DROP",
+    "ALTER",
+    "ADD",
+    "COLUMN",
+    "INDEX",
+    "PRIMARY",
+    "KEY",
+    "FOREIGN",
+    "REFERENCES",
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END",
+    "UNION",
+    "ALL",
+    "EXISTS",
+    "CAST",
+    "COALESCE",
 ];
 
 /// Build allowed token set from schema (table names + column names + SQL keywords).
@@ -22,7 +73,13 @@ pub fn build_sql_vocabulary(schemas: &[TableSchema]) -> Vec<String> {
         }
     }
     // Add common literals/operators
-    vocab.extend(["*", ",", ".", "(", ")", "=", "<", ">", "<=", ">=", "!=", ";", "'", "0", "1"].iter().map(|s| s.to_string()));
+    vocab.extend(
+        [
+            "*", ",", ".", "(", ")", "=", "<", ">", "<=", ">=", "!=", ";", "'", "0", "1",
+        ]
+        .iter()
+        .map(|s| s.to_string()),
+    );
     vocab.sort();
     vocab.dedup();
     vocab
@@ -34,12 +91,17 @@ pub fn generate_sql_stub(question: &str, schemas: &[TableSchema]) -> String {
     let q = question.to_lowercase();
 
     // Find most relevant table
-    let table = schemas.iter()
+    let table = schemas
+        .iter()
         .max_by_key(|s| {
             let mut score = 0i32;
-            if q.contains(&s.table_name.to_lowercase()) { score += 10; }
+            if q.contains(&s.table_name.to_lowercase()) {
+                score += 10;
+            }
             for col in &s.columns {
-                if q.contains(&col.name.to_lowercase()) { score += 3; }
+                if q.contains(&col.name.to_lowercase()) {
+                    score += 3;
+                }
             }
             score
         })
@@ -73,26 +135,27 @@ pub fn generate_sql_stub(question: &str, schemas: &[TableSchema]) -> String {
 }
 
 fn find_numeric_column(schemas: &[TableSchema], table_name: &str) -> Option<String> {
-    schemas.iter()
-        .find(|s| s.table_name == table_name)
-        .and_then(|s| {
-            let numeric_cols: Vec<&ColumnSchema> = s.columns.iter()
-                .filter(|c| {
-                    let dt = c.dtype.to_uppercase();
-                    (dt.contains("REAL") || dt.contains("FLOAT") || dt.contains("NUMERIC") || dt.contains("DECIMAL"))
-                        && !c.is_primary
-                })
-                .collect();
-            if !numeric_cols.is_empty() {
-                return Some(numeric_cols[0].name.clone());
-            }
-            s.columns.iter()
-                .find(|c| {
-                    let dt = c.dtype.to_uppercase();
-                    dt.contains("INT") && !c.is_primary
-                })
-                .map(|c| c.name.clone())
-        })
+    schemas.iter().find(|s| s.table_name == table_name).and_then(|s| {
+        let numeric_cols: Vec<&ColumnSchema> = s
+            .columns
+            .iter()
+            .filter(|c| {
+                let dt = c.dtype.to_uppercase();
+                (dt.contains("REAL") || dt.contains("FLOAT") || dt.contains("NUMERIC") || dt.contains("DECIMAL"))
+                    && !c.is_primary
+            })
+            .collect();
+        if !numeric_cols.is_empty() {
+            return Some(numeric_cols[0].name.clone());
+        }
+        s.columns
+            .iter()
+            .find(|c| {
+                let dt = c.dtype.to_uppercase();
+                dt.contains("INT") && !c.is_primary
+            })
+            .map(|c| c.name.clone())
+    })
 }
 
 #[cfg(test)]
@@ -105,16 +168,36 @@ mod tests {
             TableSchema {
                 table_name: "orders".into(),
                 columns: vec![
-                    ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                    ColumnSchema { name: "user_id".into(), dtype: "INTEGER".into(), is_primary: false },
-                    ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
+                    ColumnSchema {
+                        name: "id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: true,
+                    },
+                    ColumnSchema {
+                        name: "user_id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: false,
+                    },
+                    ColumnSchema {
+                        name: "amount".into(),
+                        dtype: "REAL".into(),
+                        is_primary: false,
+                    },
                 ],
             },
             TableSchema {
                 table_name: "users".into(),
                 columns: vec![
-                    ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                    ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
+                    ColumnSchema {
+                        name: "id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: true,
+                    },
+                    ColumnSchema {
+                        name: "name".into(),
+                        dtype: "TEXT".into(),
+                        is_primary: false,
+                    },
                 ],
             },
         ]

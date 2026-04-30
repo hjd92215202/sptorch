@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_monitor_triggers_rollback() {
         let mut mon = TrainingMonitor::new(3, 0.1); // 10% threshold
-        // Establish a good baseline
+                                                    // Establish a good baseline
         mon.record_loss(1.0);
         mon.record_loss(1.0);
         mon.record_loss(1.0); // avg=1.0, best=1.0

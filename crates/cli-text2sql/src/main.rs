@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use text2sql::schema::{TableSchema, ColumnSchema};
-use text2sql::server::{AppState, start_server};
+use text2sql::schema::{ColumnSchema, TableSchema};
+use text2sql::server::{start_server, AppState};
 
 #[tokio::main]
 async fn main() {
@@ -42,28 +42,76 @@ fn demo_schemas() -> Vec<TableSchema> {
         TableSchema {
             table_name: "employees".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "department".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "salary".into(), dtype: "REAL".into(), is_primary: false },
-                ColumnSchema { name: "hire_date".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "name".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "department".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "salary".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "hire_date".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
             ],
         },
         TableSchema {
             table_name: "departments".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "budget".into(), dtype: "REAL".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "name".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "budget".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
             ],
         },
         TableSchema {
             table_name: "sales".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "employee_id".into(), dtype: "INTEGER".into(), is_primary: false },
-                ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
-                ColumnSchema { name: "date".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "employee_id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "amount".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "date".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
             ],
         },
     ]

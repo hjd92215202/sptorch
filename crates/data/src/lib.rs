@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::collections::HashMap;
 
 // ============ Tokenizer Trait ============
 
@@ -22,9 +22,11 @@ impl CharTokenizer {
         let mut chars: Vec<char> = text.chars().collect();
         chars.sort();
         chars.dedup();
-        let char_to_id: HashMap<char, usize> =
-            chars.iter().enumerate().map(|(i, &c)| (c, i)).collect();
-        CharTokenizer { vocab: chars, char_to_id }
+        let char_to_id: HashMap<char, usize> = chars.iter().enumerate().map(|(i, &c)| (c, i)).collect();
+        CharTokenizer {
+            vocab: chars,
+            char_to_id,
+        }
     }
 }
 
@@ -45,9 +47,9 @@ impl Tokenizer for CharTokenizer {
 // ============ BPE Tokenizer ============
 
 pub struct BpeTokenizer {
-    vocab: Vec<String>,           // id -> token string
+    vocab: Vec<String>, // id -> token string
     token_to_id: HashMap<String, usize>,
-    merges: Vec<(usize, usize)>,  // ordered merge rules: (id_a, id_b) -> new_id
+    merges: Vec<(usize, usize)>, // ordered merge rules: (id_a, id_b) -> new_id
 }
 
 impl BpeTokenizer {
@@ -60,11 +62,11 @@ impl BpeTokenizer {
         chars.dedup();
 
         let mut vocab: Vec<String> = chars.iter().map(|c| c.to_string()).collect();
-        let mut token_to_id: HashMap<String, usize> =
-            vocab.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
+        let mut token_to_id: HashMap<String, usize> = vocab.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
 
         // Encode text as initial token ids
-        let mut token_ids: Vec<usize> = text.chars()
+        let mut token_ids: Vec<usize> = text
+            .chars()
             .map(|c| *token_to_id.get(&c.to_string()).unwrap())
             .collect();
 
@@ -82,7 +84,8 @@ impl BpeTokenizer {
             }
 
             // Find most frequent pair
-            let &best_pair = pair_counts.iter()
+            let &best_pair = pair_counts
+                .iter()
                 .max_by_key(|(_, &count)| count)
                 .map(|(pair, _)| pair)
                 .unwrap();
@@ -109,14 +112,19 @@ impl BpeTokenizer {
             token_ids = new_ids;
         }
 
-        BpeTokenizer { vocab, token_to_id, merges }
+        BpeTokenizer {
+            vocab,
+            token_to_id,
+            merges,
+        }
     }
 }
 
 impl Tokenizer for BpeTokenizer {
     fn encode(&self, text: &str) -> Vec<usize> {
         // Start with character-level tokens
-        let mut ids: Vec<usize> = text.chars()
+        let mut ids: Vec<usize> = text
+            .chars()
             .filter_map(|c| self.token_to_id.get(&c.to_string()).copied())
             .collect();
 
@@ -156,7 +164,9 @@ impl Tokenizer for BpeTokenizer {
 
 pub trait Dataset {
     fn len(&self) -> usize;
-    fn is_empty(&self) -> bool { self.len() == 0 }
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn get(&self, index: usize) -> (Vec<usize>, Vec<usize>);
 }
 
@@ -205,7 +215,13 @@ impl<'a, D: Dataset> DataLoader<'a, D> {
         if shuffle {
             indices.shuffle(&mut thread_rng());
         }
-        DataLoader { dataset, batch_size, shuffle, indices, pos: 0 }
+        DataLoader {
+            dataset,
+            batch_size,
+            shuffle,
+            indices,
+            pos: 0,
+        }
     }
 
     pub fn reset(&mut self) {

@@ -15,10 +15,14 @@ pub struct TableSchema {
 
 impl TableSchema {
     pub fn to_ddl(&self) -> String {
-        let cols: Vec<String> = self.columns.iter().map(|c| {
-            let pk = if c.is_primary { " PRIMARY KEY" } else { "" };
-            format!("  {} {}{}", c.name, c.dtype, pk)
-        }).collect();
+        let cols: Vec<String> = self
+            .columns
+            .iter()
+            .map(|c| {
+                let pk = if c.is_primary { " PRIMARY KEY" } else { "" };
+                format!("  {} {}{}", c.name, c.dtype, pk)
+            })
+            .collect();
         format!("CREATE TABLE {} (\n{}\n);", self.table_name, cols.join(",\n"))
     }
 }
@@ -30,25 +34,30 @@ pub async fn fetch_sqlite_schema(db_url: &str) -> Result<Vec<TableSchema>, sqlx:
 
     let pool = SqlitePool::connect(db_url).await?;
 
-    let tables: Vec<String> = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        .fetch_all(&pool)
-        .await?
-        .iter()
-        .map(|r| r.get::<String, _>("name"))
-        .collect();
+    let tables: Vec<String> =
+        sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            .fetch_all(&pool)
+            .await?
+            .iter()
+            .map(|r| r.get::<String, _>("name"))
+            .collect();
 
     let mut schemas = Vec::new();
     for table in &tables {
         let pragma = format!("PRAGMA table_info({})", table);
         let rows = sqlx::query(&pragma).fetch_all(&pool).await?;
-        let columns: Vec<ColumnSchema> = rows.iter().map(|r| {
-            ColumnSchema {
+        let columns: Vec<ColumnSchema> = rows
+            .iter()
+            .map(|r| ColumnSchema {
                 name: r.get::<String, _>("name"),
                 dtype: r.get::<String, _>("type"),
                 is_primary: r.get::<bool, _>("pk"),
-            }
-        }).collect();
-        schemas.push(TableSchema { table_name: table.clone(), columns });
+            })
+            .collect();
+        schemas.push(TableSchema {
+            table_name: table.clone(),
+            columns,
+        });
     }
 
     pool.close().await;
@@ -64,9 +73,21 @@ mod tests {
         let schema = TableSchema {
             table_name: "users".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "age".into(), dtype: "INTEGER".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "name".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "age".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: false,
+                },
             ],
         };
         let ddl = schema.to_ddl();
@@ -83,18 +104,32 @@ mod tests {
 
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
         pool.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, product TEXT, amount REAL)")
-            .await.unwrap();
+            .await
+            .unwrap();
         pool.execute("INSERT INTO orders VALUES (1, 'widget', 9.99)")
-            .await.unwrap();
+            .await
+            .unwrap();
         pool.close().await;
 
         // fetch_sqlite_schema needs a file-based DB for reconnection, so test DDL generation instead
         let schema = TableSchema {
             table_name: "orders".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "product".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "product".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "amount".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
             ],
         };
         assert_eq!(schema.columns.len(), 3);

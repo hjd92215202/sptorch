@@ -1,4 +1,4 @@
-use axum::{Router, Json, routing::post, extract::State};
+use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -18,10 +18,7 @@ pub struct AppState {
     pub schema_info: Vec<crate::schema::TableSchema>,
 }
 
-async fn query_handler(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<QueryRequest>,
-) -> Json<QueryResponse> {
+async fn query_handler(State(state): State<Arc<AppState>>, Json(req): Json<QueryRequest>) -> Json<QueryResponse> {
     let prompt = crate::rag::build_prompt(&req.question, &state.schema_info);
     let sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
     Json(QueryResponse {

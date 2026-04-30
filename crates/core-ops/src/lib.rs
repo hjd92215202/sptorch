@@ -5,15 +5,18 @@
 //! softmax, log_softmax, cross_entropy_loss, embedding_lookup, relu, gelu,
 //! scale, masked_fill, batch_matmul, broadcast_add, concat.
 
-use core_tensor::{Tensor, Op, Node, Device, get_backend};
+use core_tensor::{get_backend, Device, Node, Op, Tensor};
 use std::sync::Arc;
 
 // ============ Backend-aware dispatch helper ============
 
-fn dispatch_binary(a_data: &[f32], b_data: &[f32], device: &Device,
-                   cpu_fn: impl Fn(&[f32], &[f32]) -> Vec<f32>,
-                   backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &[f32], &mut [f32]))
-                   -> Vec<f32> {
+fn dispatch_binary(
+    a_data: &[f32],
+    b_data: &[f32],
+    device: &Device,
+    cpu_fn: impl Fn(&[f32], &[f32]) -> Vec<f32>,
+    backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &[f32], &mut [f32]),
+) -> Vec<f32> {
     if let Some(backend) = get_backend(device) {
         let mut out = vec![0.0f32; a_data.len()];
         backend_fn(&*backend, a_data, b_data, &mut out);
@@ -23,10 +26,12 @@ fn dispatch_binary(a_data: &[f32], b_data: &[f32], device: &Device,
     }
 }
 
-fn dispatch_unary(a_data: &[f32], device: &Device,
-                  cpu_fn: impl Fn(&[f32]) -> Vec<f32>,
-                  backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &mut [f32]))
-                  -> Vec<f32> {
+fn dispatch_unary(
+    a_data: &[f32],
+    device: &Device,
+    cpu_fn: impl Fn(&[f32]) -> Vec<f32>,
+    backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &mut [f32]),
+) -> Vec<f32> {
     if let Some(backend) = get_backend(device) {
         let mut out = vec![0.0f32; a_data.len()];
         backend_fn(&*backend, a_data, &mut out);
@@ -46,17 +51,18 @@ mod gpu_accel {
     static GPU: OnceLock<Option<CudaBackend>> = OnceLock::new();
 
     pub fn get_gpu() -> Option<&'static CudaBackend> {
-        GPU.get_or_init(|| {
-            match CudaBackend::new(0) {
-                Ok(b) => {
-                    if b.load_kernels().is_ok() {
-                        eprintln!("[sptorch] GPU accelerator enabled (cuBLAS matmul)");
-                        Some(b)
-                    } else { None }
+        GPU.get_or_init(|| match CudaBackend::new(0) {
+            Ok(b) => {
+                if b.load_kernels().is_ok() {
+                    eprintln!("[sptorch] GPU accelerator enabled (cuBLAS matmul)");
+                    Some(b)
+                } else {
+                    None
                 }
-                Err(_) => None,
             }
-        }).as_ref()
+            Err(_) => None,
+        })
+        .as_ref()
     }
 
     pub fn gpu_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Option<Vec<f32>> {
@@ -76,12 +82,20 @@ fn tiled_matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> 
     let mut c = vec![0.0f32; m * n];
     unsafe {
         matrixmultiply::sgemm(
-            m, k, n,
+            m,
+            k,
+            n,
             1.0,
-            a.as_ptr(), k as isize, 1,
-            b.as_ptr(), n as isize, 1,
+            a.as_ptr(),
+            k as isize,
+            1,
+            b.as_ptr(),
+            n as isize,
+            1,
             0.0,
-            c.as_mut_ptr(), n as isize, 1,
+            c.as_mut_ptr(),
+            n as isize,
+            1,
         );
     }
     c
@@ -120,9 +134,13 @@ pub fn add(a: &Tensor, b: &Tensor) -> Tensor {
     let shape = a.shape();
     let device = a.device();
 
-    let res_data = dispatch_binary(&a_data, &b_data, &device,
+    let res_data = dispatch_binary(
+        &a_data,
+        &b_data,
+        &device,
         |a, b| a.iter().zip(b.iter()).map(|(x, y)| x + y).collect(),
-        |backend, a, b, out| backend.add_f32(a, b, out));
+        |backend, a, b, out| backend.add_f32(a, b, out),
+    );
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() || b.requires_grad() {
@@ -167,9 +185,13 @@ pub fn mul(a: &Tensor, b: &Tensor) -> Tensor {
     let shape = a.shape();
     let device = a.device();
 
-    let res_data = dispatch_binary(&a_data, &b_data, &device,
+    let res_data = dispatch_binary(
+        &a_data,
+        &b_data,
+        &device,
         |a, b| a.iter().zip(b.iter()).map(|(x, y)| x * y).collect(),
-        |backend, a, b, out| backend.mul_f32(a, b, out));
+        |backend, a, b, out| backend.mul_f32(a, b, out),
+    );
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() || b.requires_grad() {
@@ -204,9 +226,12 @@ pub fn neg(a: &Tensor) -> Tensor {
     let shape = a.shape();
     let device = a.device();
 
-    let res_data = dispatch_unary(&a_data, &device,
+    let res_data = dispatch_unary(
+        &a_data,
+        &device,
         |a| a.iter().map(|x| -x).collect(),
-        |backend, a, out| backend.neg_f32(a, out));
+        |backend, a, out| backend.neg_f32(a, out),
+    );
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
@@ -271,7 +296,10 @@ impl Op for MeanOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         let g_val = grad_output.data()[0];
         let size: usize = self.input_shape.iter().product();
-        vec![Some(Tensor::new(vec![g_val / self.numel; size], self.input_shape.clone()))]
+        vec![Some(Tensor::new(
+            vec![g_val / self.numel; size],
+            self.input_shape.clone(),
+        ))]
     }
 }
 
@@ -285,7 +313,10 @@ pub fn mean(a: &Tensor) -> Tensor {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
         inner.creator = Some(Arc::new(Node {
-            op: Box::new(MeanOp { input_shape: a.shape(), numel: n }),
+            op: Box::new(MeanOp {
+                input_shape: a.shape(),
+                numel: n,
+            }),
             inputs: vec![a.clone()],
         }));
     }
@@ -331,10 +362,7 @@ impl Op for MatmulOp {
         }
         let db = dispatch_matmul(&at, &g, k, m, n);
 
-        vec![
-            Some(Tensor::new(da, vec![m, k])),
-            Some(Tensor::new(db, vec![k, n])),
-        ]
+        vec![Some(Tensor::new(da, vec![m, k])), Some(Tensor::new(db, vec![k, n]))]
     }
 }
 
@@ -394,9 +422,12 @@ pub fn exp(a: &Tensor) -> Tensor {
     let a_data = a.data();
     let shape = a.shape();
     let device = a.device();
-    let res_data = dispatch_unary(&a_data, &device,
+    let res_data = dispatch_unary(
+        &a_data,
+        &device,
         |a| a.iter().map(|x| x.exp()).collect(),
-        |backend, a, out| backend.exp_f32(a, out));
+        |backend, a, out| backend.exp_f32(a, out),
+    );
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
@@ -432,9 +463,12 @@ pub fn log(a: &Tensor) -> Tensor {
     let a_data = a.data();
     let shape = a.shape();
     let device = a.device();
-    let res_data = dispatch_unary(&a_data, &device,
+    let res_data = dispatch_unary(
+        &a_data,
+        &device,
         |a| a.iter().map(|x| x.ln()).collect(),
-        |backend, a, out| backend.log_f32(a, out));
+        |backend, a, out| backend.log_f32(a, out),
+    );
     let res = Tensor::new(res_data, shape);
 
     if a.requires_grad() {
@@ -468,7 +502,11 @@ pub fn reshape(a: &Tensor, new_shape: Vec<usize>) -> Tensor {
     let old_shape = a.shape();
     let old_numel: usize = old_shape.iter().product();
     let new_numel: usize = new_shape.iter().product();
-    assert_eq!(old_numel, new_numel, "reshape: numel mismatch {} vs {}", old_numel, new_numel);
+    assert_eq!(
+        old_numel, new_numel,
+        "reshape: numel mismatch {} vs {}",
+        old_numel, new_numel
+    );
 
     let data = a.contiguous_data();
     let res = Tensor::new(data, new_shape.clone());
@@ -686,7 +724,9 @@ pub fn log_softmax(a: &Tensor) -> Tensor {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
         inner.creator = Some(Arc::new(Node {
-            op: Box::new(LogSoftmaxOp { softmax_output: sm_tensor }),
+            op: Box::new(LogSoftmaxOp {
+                softmax_output: sm_tensor,
+            }),
             inputs: vec![a.clone()],
         }));
     }
@@ -716,14 +756,18 @@ impl Op for CrossEntropyLossOp {
         if shape.len() == 1 {
             // Single sample
             da[self.targets[0]] -= 1.0;
-            for v in da.iter_mut() { *v *= g_val; }
+            for v in da.iter_mut() {
+                *v *= g_val;
+            }
         } else {
             let cols = shape[1];
             for (r, &t) in self.targets.iter().enumerate() {
                 da[r * cols + t] -= 1.0;
             }
             let scale = g_val / n as f32;
-            for v in da.iter_mut() { *v *= scale; }
+            for v in da.iter_mut() {
+                *v *= scale;
+            }
         }
 
         vec![Some(Tensor::new(da, shape))]
@@ -739,7 +783,12 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> Tensor {
 
     if shape.len() == 1 {
         let num_classes = shape[0];
-        assert!(targets[0] < num_classes, "cross_entropy: target {} out of range {}", targets[0], num_classes);
+        assert!(
+            targets[0] < num_classes,
+            "cross_entropy: target {} out of range {}",
+            targets[0],
+            num_classes
+        );
         let max_val = data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         let exps: Vec<f32> = data.iter().map(|x| (x - max_val).exp()).collect();
         let sum: f32 = exps.iter().sum();
@@ -770,7 +819,12 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> Tensor {
         let (batch, num_classes) = (shape[0], shape[1]);
         assert_eq!(targets.len(), batch);
         for &t in targets {
-            assert!(t < num_classes, "cross_entropy: target {} out of range {}", t, num_classes);
+            assert!(
+                t < num_classes,
+                "cross_entropy: target {} out of range {}",
+                t,
+                num_classes
+            );
         }
 
         let mut total_loss = 0.0f32;
@@ -778,7 +832,9 @@ pub fn cross_entropy_loss(logits: &Tensor, targets: &[usize]) -> Tensor {
 
         for r in 0..batch {
             let off = r * num_classes;
-            let max_val = (0..num_classes).map(|c| data[off + c]).fold(f32::NEG_INFINITY, f32::max);
+            let max_val = (0..num_classes)
+                .map(|c| data[off + c])
+                .fold(f32::NEG_INFINITY, f32::max);
             let sum: f32 = (0..num_classes).map(|c| (data[off + c] - max_val).exp()).sum();
             let log_sum = sum.ln();
             total_loss += -(data[off + targets[r]] - max_val - log_sum);
@@ -844,7 +900,12 @@ pub fn embedding_lookup(weight: &Tensor, indices: &[usize]) -> Tensor {
     let seq_len = indices.len();
     let mut out = vec![0.0f32; seq_len * embedding_dim];
     for (i, &idx) in indices.iter().enumerate() {
-        assert!(idx < num_embeddings, "embedding index {} out of range {}", idx, num_embeddings);
+        assert!(
+            idx < num_embeddings,
+            "embedding index {} out of range {}",
+            idx,
+            num_embeddings
+        );
         out[i * embedding_dim..(i + 1) * embedding_dim]
             .copy_from_slice(&w_data[idx * embedding_dim..(idx + 1) * embedding_dim]);
     }
@@ -877,7 +938,11 @@ pub struct ReluOp {
 impl Op for ReluOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         let g = grad_output.contiguous_data();
-        let da: Vec<f32> = g.iter().zip(self.mask.iter()).map(|(gi, &m)| if m { *gi } else { 0.0 }).collect();
+        let da: Vec<f32> = g
+            .iter()
+            .zip(self.mask.iter())
+            .map(|(gi, &m)| if m { *gi } else { 0.0 })
+            .collect();
         vec![Some(Tensor::new(da, grad_output.shape()))]
     }
 }
@@ -887,9 +952,12 @@ pub fn relu(a: &Tensor) -> Tensor {
     let shape = a.shape();
     let device = a.device();
     let mask: Vec<bool> = data.iter().map(|x| *x > 0.0).collect();
-    let out = dispatch_unary(&data, &device,
+    let out = dispatch_unary(
+        &data,
+        &device,
         |a| a.iter().map(|x| x.max(0.0)).collect(),
-        |backend, a, o| backend.relu_f32(a, o));
+        |backend, a, o| backend.relu_f32(a, o),
+    );
     let res = Tensor::new(out, shape);
 
     if a.requires_grad() {
@@ -918,13 +986,17 @@ impl Op for GeluOp {
         let g = grad_output.contiguous_data();
         let x = self.saved_input.contiguous_data();
         let sqrt_2_pi: f32 = (2.0 / std::f32::consts::PI).sqrt();
-        let da: Vec<f32> = g.iter().zip(x.iter()).map(|(gi, &xi)| {
-            let k = sqrt_2_pi * (xi + 0.044715 * xi.powi(3));
-            let tanh_k = k.tanh();
-            let dk = sqrt_2_pi * (1.0 + 0.134145 * xi * xi);
-            let gelu_grad = 0.5 * (1.0 + tanh_k) + 0.5 * xi * (1.0 - tanh_k * tanh_k) * dk;
-            gi * gelu_grad
-        }).collect();
+        let da: Vec<f32> = g
+            .iter()
+            .zip(x.iter())
+            .map(|(gi, &xi)| {
+                let k = sqrt_2_pi * (xi + 0.044715 * xi.powi(3));
+                let tanh_k = k.tanh();
+                let dk = sqrt_2_pi * (1.0 + 0.134145 * xi * xi);
+                let gelu_grad = 0.5 * (1.0 + tanh_k) + 0.5 * xi * (1.0 - tanh_k * tanh_k) * dk;
+                gi * gelu_grad
+            })
+            .collect();
         vec![Some(Tensor::new(da, grad_output.shape()))]
     }
 }
@@ -933,12 +1005,17 @@ pub fn gelu(a: &Tensor) -> Tensor {
     let data = a.contiguous_data();
     let shape = a.shape();
     let device = a.device();
-    let out = dispatch_unary(&data, &device,
+    let out = dispatch_unary(
+        &data,
+        &device,
         |a| {
             let sqrt_2_pi: f32 = (2.0 / std::f32::consts::PI).sqrt();
-            a.iter().map(|&x| 0.5 * x * (1.0 + (sqrt_2_pi * (x + 0.044715 * x.powi(3))).tanh())).collect()
+            a.iter()
+                .map(|&x| 0.5 * x * (1.0 + (sqrt_2_pi * (x + 0.044715 * x.powi(3))).tanh()))
+                .collect()
         },
-        |backend, a, o| backend.gelu_f32(a, o));
+        |backend, a, o| backend.gelu_f32(a, o),
+    );
     let res = Tensor::new(out, shape);
 
     if a.requires_grad() {
@@ -1003,7 +1080,9 @@ pub struct MaskedFillOp {
 impl Op for MaskedFillOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         let g = grad_output.contiguous_data();
-        let da: Vec<f32> = g.iter().zip(self.mask.iter())
+        let da: Vec<f32> = g
+            .iter()
+            .zip(self.mask.iter())
             .map(|(gi, &m)| if m { 0.0 } else { *gi })
             .collect();
         vec![Some(Tensor::new(da, grad_output.shape()))]
@@ -1015,7 +1094,9 @@ pub fn masked_fill(a: &Tensor, mask: &[bool], fill_value: f32) -> Tensor {
     let data = a.contiguous_data();
     let shape = a.shape();
     assert_eq!(data.len(), mask.len());
-    let out: Vec<f32> = data.iter().zip(mask.iter())
+    let out: Vec<f32> = data
+        .iter()
+        .zip(mask.iter())
         .map(|(&x, &m)| if m { fill_value } else { x })
         .collect();
     let res = Tensor::new(out, shape);
@@ -1149,10 +1230,7 @@ impl Op for BroadcastAddOp {
             db_data[i % b_numel] += g[i];
         }
 
-        vec![
-            Some(da),
-            Some(Tensor::new(db_data, self.b_shape.clone())),
-        ]
+        vec![Some(da), Some(Tensor::new(db_data, self.b_shape.clone()))]
     }
 }
 
@@ -1165,10 +1243,17 @@ pub fn broadcast_add(a: &Tensor, b: &Tensor) -> Tensor {
     let b_shape = b.shape();
     let b_numel = b_data.len();
 
-    assert_eq!(a_data.len() % b_numel, 0,
-        "broadcast_add: a.numel()={} not divisible by b.numel()={}", a_data.len(), b_numel);
+    assert_eq!(
+        a_data.len() % b_numel,
+        0,
+        "broadcast_add: a.numel()={} not divisible by b.numel()={}",
+        a_data.len(),
+        b_numel
+    );
 
-    let out: Vec<f32> = a_data.iter().enumerate()
+    let out: Vec<f32> = a_data
+        .iter()
+        .enumerate()
         .map(|(i, &av)| av + b_data[i % b_numel])
         .collect();
     let res = Tensor::new(out, a_shape.clone());
@@ -1177,9 +1262,7 @@ pub fn broadcast_add(a: &Tensor, b: &Tensor) -> Tensor {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
         inner.creator = Some(Arc::new(Node {
-            op: Box::new(BroadcastAddOp {
-                b_shape,
-            }),
+            op: Box::new(BroadcastAddOp { b_shape }),
             inputs: vec![a.clone(), b.clone()],
         }));
     }
@@ -1265,30 +1348,39 @@ where
             let mut data_minus = data.clone();
             data_minus[i] -= eps;
 
-            let inputs_plus: Vec<Tensor> = inputs.iter().enumerate().map(|(j, t)| {
-                if j == idx {
-                    Tensor::new(data_plus.clone(), shape.clone())
-                } else {
-                    Tensor::new(t.data(), t.shape())
-                }
-            }).collect();
+            let inputs_plus: Vec<Tensor> = inputs
+                .iter()
+                .enumerate()
+                .map(|(j, t)| {
+                    if j == idx {
+                        Tensor::new(data_plus.clone(), shape.clone())
+                    } else {
+                        Tensor::new(t.data(), t.shape())
+                    }
+                })
+                .collect();
 
-            let inputs_minus: Vec<Tensor> = inputs.iter().enumerate().map(|(j, t)| {
-                if j == idx {
-                    Tensor::new(data_minus.clone(), shape.clone())
-                } else {
-                    Tensor::new(t.data(), t.shape())
-                }
-            }).collect();
+            let inputs_minus: Vec<Tensor> = inputs
+                .iter()
+                .enumerate()
+                .map(|(j, t)| {
+                    if j == idx {
+                        Tensor::new(data_minus.clone(), shape.clone())
+                    } else {
+                        Tensor::new(t.data(), t.shape())
+                    }
+                })
+                .collect();
 
             let out_plus = f(&inputs_plus);
             let out_minus = f(&inputs_minus);
 
             let numerical = (out_plus.data()[0] - out_minus.data()[0]) / (2.0 * eps);
 
-            let analytical_inputs: Vec<Tensor> = inputs.iter().map(|t| {
-                Tensor::with_grad(t.data(), t.shape(), true)
-            }).collect();
+            let analytical_inputs: Vec<Tensor> = inputs
+                .iter()
+                .map(|t| Tensor::with_grad(t.data(), t.shape(), true))
+                .collect();
 
             let out = f(&analytical_inputs);
             out.backward();
@@ -1466,7 +1558,9 @@ mod tests {
         let b = Tensor::new(vec![4.0, 5.0], vec![2]);
         assert!(numerical_grad_check(
             |inputs| sum(&add(&inputs[0], &inputs[1])),
-            &[&a, &b], 1e-3, 1e-2
+            &[&a, &b],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1476,7 +1570,9 @@ mod tests {
         let b = Tensor::new(vec![4.0, 5.0], vec![2]);
         assert!(numerical_grad_check(
             |inputs| sum(&mul(&inputs[0], &inputs[1])),
-            &[&a, &b], 1e-3, 1e-2
+            &[&a, &b],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1486,26 +1582,22 @@ mod tests {
         let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
         assert!(numerical_grad_check(
             |inputs| sum(&matmul(&inputs[0], &inputs[1])),
-            &[&a, &b], 1e-3, 1e-2
+            &[&a, &b],
+            1e-3,
+            1e-2
         ));
     }
 
     #[test]
     fn test_grad_check_exp() {
         let a = Tensor::new(vec![0.5, 1.0], vec![2]);
-        assert!(numerical_grad_check(
-            |inputs| sum(&exp(&inputs[0])),
-            &[&a], 1e-3, 1e-2
-        ));
+        assert!(numerical_grad_check(|inputs| sum(&exp(&inputs[0])), &[&a], 1e-3, 1e-2));
     }
 
     #[test]
     fn test_grad_check_log() {
         let a = Tensor::new(vec![1.0, 2.0], vec![2]);
-        assert!(numerical_grad_check(
-            |inputs| sum(&log(&inputs[0])),
-            &[&a], 1e-3, 1e-2
-        ));
+        assert!(numerical_grad_check(|inputs| sum(&log(&inputs[0])), &[&a], 1e-3, 1e-2));
     }
 
     // --- Composite backward tests ---
@@ -1626,7 +1718,9 @@ mod tests {
         let a = Tensor::new(vec![1.0, 2.0, 3.0], vec![3]);
         assert!(numerical_grad_check(
             |inputs| sum(&softmax(&inputs[0])),
-            &[&a], 1e-3, 1e-2
+            &[&a],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1635,7 +1729,9 @@ mod tests {
         let a = Tensor::new(vec![1.0, 2.0, 3.0], vec![3]);
         assert!(numerical_grad_check(
             |inputs| sum(&log_softmax(&inputs[0])),
-            &[&a], 1e-3, 1e-2
+            &[&a],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1674,7 +1770,9 @@ mod tests {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         assert!(numerical_grad_check(
             |inputs| cross_entropy_loss(&inputs[0], &[0, 1]),
-            &[&a], 1e-3, 1e-2
+            &[&a],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1683,28 +1781,18 @@ mod tests {
     #[test]
     fn test_embedding_forward() {
         // 4 embeddings of dim 3
-        let w = Tensor::new(vec![
-            0.1, 0.2, 0.3,
-            0.4, 0.5, 0.6,
-            0.7, 0.8, 0.9,
-            1.0, 1.1, 1.2,
-        ], vec![4, 3]);
+        let w = Tensor::new(
+            vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+            vec![4, 3],
+        );
         let out = embedding_lookup(&w, &[0, 2, 3]);
         assert_eq!(out.shape(), vec![3, 3]);
-        assert_eq!(out.data(), vec![
-            0.1, 0.2, 0.3,
-            0.7, 0.8, 0.9,
-            1.0, 1.1, 1.2,
-        ]);
+        assert_eq!(out.data(), vec![0.1, 0.2, 0.3, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2,]);
     }
 
     #[test]
     fn test_embedding_backward() {
-        let w = Tensor::with_grad(vec![
-            1.0, 2.0,
-            3.0, 4.0,
-            5.0, 6.0,
-        ], vec![3, 2], true);
+        let w = Tensor::with_grad(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2], true);
         let out = embedding_lookup(&w, &[0, 2, 0]); // index 0 appears twice
         let loss = sum(&out);
         loss.backward();
@@ -1736,10 +1824,7 @@ mod tests {
     fn test_grad_check_relu() {
         // Avoid 0 (non-differentiable point)
         let a = Tensor::new(vec![-1.0, 0.5, 1.0, 2.0], vec![4]);
-        assert!(numerical_grad_check(
-            |inputs| sum(&relu(&inputs[0])),
-            &[&a], 1e-3, 1e-2
-        ));
+        assert!(numerical_grad_check(|inputs| sum(&relu(&inputs[0])), &[&a], 1e-3, 1e-2));
     }
 
     // --- GELU tests ---
@@ -1756,10 +1841,7 @@ mod tests {
     #[test]
     fn test_grad_check_gelu() {
         let a = Tensor::new(vec![-1.0, 0.5, 1.0, 2.0], vec![4]);
-        assert!(numerical_grad_check(
-            |inputs| sum(&gelu(&inputs[0])),
-            &[&a], 1e-3, 1e-2
-        ));
+        assert!(numerical_grad_check(|inputs| sum(&gelu(&inputs[0])), &[&a], 1e-3, 1e-2));
     }
 
     // --- Scale tests ---
@@ -1818,14 +1900,14 @@ mod tests {
     #[test]
     fn test_batch_matmul_multi_batch() {
         // batch=2, each [2,2] @ [2,2]
-        let a = Tensor::new(vec![
-            1.0, 0.0, 0.0, 1.0, // identity
-            2.0, 0.0, 0.0, 2.0, // 2*identity
-        ], vec![2, 2, 2]);
-        let b = Tensor::new(vec![
-            3.0, 4.0, 5.0, 6.0,
-            3.0, 4.0, 5.0, 6.0,
-        ], vec![2, 2, 2]);
+        let a = Tensor::new(
+            vec![
+                1.0, 0.0, 0.0, 1.0, // identity
+                2.0, 0.0, 0.0, 2.0, // 2*identity
+            ],
+            vec![2, 2, 2],
+        );
+        let b = Tensor::new(vec![3.0, 4.0, 5.0, 6.0, 3.0, 4.0, 5.0, 6.0], vec![2, 2, 2]);
         let c = batch_matmul(&a, &b);
         assert_eq!(c.shape(), vec![2, 2, 2]);
         let d = c.data();
@@ -1841,7 +1923,9 @@ mod tests {
         let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![1, 2, 2]);
         assert!(numerical_grad_check(
             |inputs| sum(&batch_matmul(&inputs[0], &inputs[1])),
-            &[&a, &b], 1e-3, 1e-2
+            &[&a, &b],
+            1e-3,
+            1e-2
         ));
     }
 
@@ -1893,41 +1977,59 @@ mod tests {
 
     #[test]
     fn test_backend_dispatch_custom() {
-        use core_tensor::{BackendDispatch, register_backend};
+        use core_tensor::{register_backend, BackendDispatch};
         use std::sync::Arc;
 
         struct DoubleBackend;
         impl BackendDispatch for DoubleBackend {
             fn add_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = (a[i] + b[i]) * 2.0; }
+                for i in 0..out.len() {
+                    out[i] = (a[i] + b[i]) * 2.0;
+                }
             }
             fn mul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = a[i] * b[i] * 2.0; }
+                for i in 0..out.len() {
+                    out[i] = a[i] * b[i] * 2.0;
+                }
             }
             fn neg_f32(&self, a: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = -a[i] * 2.0; }
+                for i in 0..out.len() {
+                    out[i] = -a[i] * 2.0;
+                }
             }
             fn exp_f32(&self, a: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = a[i].exp(); }
+                for i in 0..out.len() {
+                    out[i] = a[i].exp();
+                }
             }
             fn log_f32(&self, a: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = a[i].ln(); }
+                for i in 0..out.len() {
+                    out[i] = a[i].ln();
+                }
             }
             fn relu_f32(&self, a: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = if a[i] > 0.0 { a[i] } else { 0.0 }; }
+                for i in 0..out.len() {
+                    out[i] = if a[i] > 0.0 { a[i] } else { 0.0 };
+                }
             }
             fn gelu_f32(&self, a: &[f32], out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = a[i]; }
+                for i in 0..out.len() {
+                    out[i] = a[i];
+                }
             }
             fn scale_f32(&self, a: &[f32], s: f32, out: &mut [f32]) {
-                for i in 0..out.len() { out[i] = a[i] * s; }
+                for i in 0..out.len() {
+                    out[i] = a[i] * s;
+                }
             }
             fn matmul_f32(&self, a: &[f32], b: &[f32], out: &mut [f32], m: usize, k: usize, n: usize) {
                 for i in 0..m {
                     for j in 0..n {
                         let mut s = 0.0f32;
-                        for p in 0..k { s += a[i*k+p] * b[p*n+j]; }
-                        out[i*n+j] = s;
+                        for p in 0..k {
+                            s += a[i * k + p] * b[p * n + j];
+                        }
+                        out[i * n + j] = s;
                     }
                 }
             }

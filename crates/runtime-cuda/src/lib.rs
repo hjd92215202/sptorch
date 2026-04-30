@@ -1,5 +1,5 @@
+use cudarc::cublas::{sys::cublasOperation_t, CudaBlas};
 use cudarc::driver::*;
-use cudarc::cublas::{CudaBlas, sys::cublasOperation_t};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -10,7 +10,9 @@ pub enum CudaError {
 }
 
 impl From<DriverError> for CudaError {
-    fn from(e: DriverError) -> Self { CudaError::Driver(e) }
+    fn from(e: DriverError) -> Self {
+        CudaError::Driver(e)
+    }
 }
 
 pub struct CudaBackend {
@@ -38,7 +40,11 @@ impl GpuTensor {
     pub fn from_host(backend: &CudaBackend, data: &[f32], shape: Vec<usize>) -> Result<Self, CudaError> {
         let numel = data.len();
         let gpu_data = backend.dev.htod_sync_copy(data)?;
-        Ok(GpuTensor { data: gpu_data, shape, numel })
+        Ok(GpuTensor {
+            data: gpu_data,
+            shape,
+            numel,
+        })
     }
 
     pub fn to_host(&self, backend: &CudaBackend) -> Result<Vec<f32>, CudaError> {
@@ -49,7 +55,11 @@ impl GpuTensor {
     pub fn zeros(backend: &CudaBackend, shape: Vec<usize>) -> Result<Self, CudaError> {
         let numel: usize = shape.iter().product();
         let gpu_data = backend.dev.alloc_zeros::<f32>(numel)?;
-        Ok(GpuTensor { data: gpu_data, shape, numel })
+        Ok(GpuTensor {
+            data: gpu_data,
+            shape,
+            numel,
+        })
     }
 }
 
@@ -114,9 +124,16 @@ extern "C" __global__ void accum_kernel(float* a, const float* b, unsigned int n
 "#;
 
 const KERNEL_NAMES: &[&str] = &[
-    "add_kernel", "mul_kernel", "neg_kernel", "scale_kernel",
-    "exp_kernel", "log_kernel", "gelu_kernel", "relu_kernel",
-    "sgd_kernel", "accum_kernel",
+    "add_kernel",
+    "mul_kernel",
+    "neg_kernel",
+    "scale_kernel",
+    "exp_kernel",
+    "log_kernel",
+    "gelu_kernel",
+    "relu_kernel",
+    "sgd_kernel",
+    "accum_kernel",
 ];
 
 // ============ Kernel Operations ============
@@ -136,8 +153,7 @@ impl CudaBackend {
         if self.dev.has_func("elem", "add_kernel") {
             return Ok(());
         }
-        let ptx = cudarc::nvrtc::compile_ptx(KERNEL_SRC)
-            .map_err(|e| CudaError::Compile(e.to_string()))?;
+        let ptx = cudarc::nvrtc::compile_ptx(KERNEL_SRC).map_err(|e| CudaError::Compile(e.to_string()))?;
         self.dev.load_ptx(ptx, "elem", KERNEL_NAMES)?;
         Ok(())
     }
@@ -235,7 +251,8 @@ impl CudaBackend {
                 *out.data.device_ptr_mut() as *mut f32,
                 n as i32,
             )
-        }.map_err(|e| CudaError::Cublas(e.to_string()))?;
+        }
+        .map_err(|e| CudaError::Cublas(e.to_string()))?;
 
         Ok(out)
     }
@@ -279,7 +296,9 @@ impl CudaBackend {
         let a_host = a.to_host(self)?;
         let b_host = b.to_host(self)?;
         let b_numel = b_host.len();
-        let out: Vec<f32> = a_host.iter().enumerate()
+        let out: Vec<f32> = a_host
+            .iter()
+            .enumerate()
             .map(|(i, &v)| v + b_host[i % b_numel])
             .collect();
         GpuTensor::from_host(self, &out, a.shape.clone())
@@ -342,7 +361,9 @@ impl CudaBackend {
             grad[r * vocab + t] -= 1.0;
         }
         let scale = 1.0 / seq_len as f32;
-        for v in grad.iter_mut() { *v *= scale; }
+        for v in grad.iter_mut() {
+            *v *= scale;
+        }
         GpuTensor::from_host(self, &grad, sm.shape.clone())
     }
 
@@ -359,7 +380,13 @@ impl CudaBackend {
     }
 
     /// Embedding backward: scatter grad back to weight shape
-    pub fn gpu_embedding_backward(&self, grad: &GpuTensor, indices: &[usize], num_emb: usize, dim: usize) -> Result<GpuTensor, CudaError> {
+    pub fn gpu_embedding_backward(
+        &self,
+        grad: &GpuTensor,
+        indices: &[usize],
+        num_emb: usize,
+        dim: usize,
+    ) -> Result<GpuTensor, CudaError> {
         let g = grad.to_host(self)?;
         let mut dw = vec![0.0f32; num_emb * dim];
         for (i, &idx) in indices.iter().enumerate() {
@@ -374,7 +401,9 @@ impl CudaBackend {
     pub fn gpu_masked_fill(&self, a: &GpuTensor, mask: &[bool], fill_value: f32) -> Result<GpuTensor, CudaError> {
         let mut data = a.to_host(self)?;
         for (i, &m) in mask.iter().enumerate() {
-            if m { data[i] = fill_value; }
+            if m {
+                data[i] = fill_value;
+            }
         }
         GpuTensor::from_host(self, &data, a.shape.clone())
     }
@@ -395,7 +424,13 @@ impl CudaBackend {
     }
 
     /// Layer norm: input:[batch, dim], gamma:[dim], beta:[dim]
-    pub fn gpu_layer_norm(&self, input: &GpuTensor, gamma: &GpuTensor, beta: &GpuTensor, eps: f32) -> Result<GpuTensor, CudaError> {
+    pub fn gpu_layer_norm(
+        &self,
+        input: &GpuTensor,
+        gamma: &GpuTensor,
+        beta: &GpuTensor,
+        eps: f32,
+    ) -> Result<GpuTensor, CudaError> {
         let data = input.to_host(self)?;
         let g = gamma.to_host(self)?;
         let b = beta.to_host(self)?;
@@ -515,8 +550,8 @@ mod tests {
         let out = b.gpu_gelu(&a).unwrap();
         let r = out.to_host(&b).unwrap();
         assert!((r[1] - 0.0).abs() < 1e-6); // gelu(0) = 0
-        assert!(r[0] < 0.0);                  // gelu(-1) < 0
-        assert!(r[2] > 0.8);                  // gelu(1) ~ 0.841
+        assert!(r[0] < 0.0); // gelu(-1) < 0
+        assert!(r[2] > 0.8); // gelu(1) ~ 0.841
     }
 
     #[test]
@@ -551,8 +586,8 @@ mod tests {
         let m = 64;
         let k = 48;
         let n = 32;
-        let a_data: Vec<f32> = (0..m*k).map(|i| (i as f32) * 0.01).collect();
-        let b_data: Vec<f32> = (0..k*n).map(|i| (i as f32) * 0.01).collect();
+        let a_data: Vec<f32> = (0..m * k).map(|i| (i as f32) * 0.01).collect();
+        let b_data: Vec<f32> = (0..k * n).map(|i| (i as f32) * 0.01).collect();
 
         let ga = GpuTensor::from_host(&b, &a_data, vec![m, k]).unwrap();
         let gb = GpuTensor::from_host(&b, &b_data, vec![k, n]).unwrap();
@@ -568,9 +603,14 @@ mod tests {
             }
         }
 
-        for i in 0..m*n {
-            assert!((gpu_out[i] - cpu_out[i]).abs() < 0.1,
-                "mismatch at {}: gpu={} cpu={}", i, gpu_out[i], cpu_out[i]);
+        for i in 0..m * n {
+            assert!(
+                (gpu_out[i] - cpu_out[i]).abs() < 0.1,
+                "mismatch at {}: gpu={} cpu={}",
+                i,
+                gpu_out[i],
+                cpu_out[i]
+            );
         }
     }
 }

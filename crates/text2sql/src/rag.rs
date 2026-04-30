@@ -14,18 +14,22 @@ pub fn build_prompt(question: &str, schemas: &[TableSchema]) -> String {
 /// Simple keyword-based table relevance scoring for schema filtering.
 pub fn rank_tables(question: &str, schemas: &[TableSchema]) -> Vec<(usize, f32)> {
     let q_lower = question.to_lowercase();
-    let mut scores: Vec<(usize, f32)> = schemas.iter().enumerate().map(|(i, s)| {
-        let mut score = 0.0f32;
-        if q_lower.contains(&s.table_name.to_lowercase()) {
-            score += 5.0;
-        }
-        for col in &s.columns {
-            if q_lower.contains(&col.name.to_lowercase()) {
-                score += 2.0;
+    let mut scores: Vec<(usize, f32)> = schemas
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let mut score = 0.0f32;
+            if q_lower.contains(&s.table_name.to_lowercase()) {
+                score += 5.0;
             }
-        }
-        (i, score)
-    }).collect();
+            for col in &s.columns {
+                if q_lower.contains(&col.name.to_lowercase()) {
+                    score += 2.0;
+                }
+            }
+            (i, score)
+        })
+        .collect();
     scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     scores
 }
@@ -33,7 +37,8 @@ pub fn rank_tables(question: &str, schemas: &[TableSchema]) -> Vec<(usize, f32)>
 /// Filter to top-k most relevant tables for the prompt.
 pub fn select_relevant_schemas(question: &str, schemas: &[TableSchema], top_k: usize) -> Vec<TableSchema> {
     let ranked = rank_tables(question, schemas);
-    ranked.iter()
+    ranked
+        .iter()
         .take(top_k)
         .filter(|(_, score)| *score > 0.0)
         .map(|(i, _)| schemas[*i].clone())
@@ -50,16 +55,36 @@ mod tests {
             TableSchema {
                 table_name: "users".into(),
                 columns: vec![
-                    ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                    ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
+                    ColumnSchema {
+                        name: "id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: true,
+                    },
+                    ColumnSchema {
+                        name: "name".into(),
+                        dtype: "TEXT".into(),
+                        is_primary: false,
+                    },
                 ],
             },
             TableSchema {
                 table_name: "orders".into(),
                 columns: vec![
-                    ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                    ColumnSchema { name: "user_id".into(), dtype: "INTEGER".into(), is_primary: false },
-                    ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
+                    ColumnSchema {
+                        name: "id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: true,
+                    },
+                    ColumnSchema {
+                        name: "user_id".into(),
+                        dtype: "INTEGER".into(),
+                        is_primary: false,
+                    },
+                    ColumnSchema {
+                        name: "amount".into(),
+                        dtype: "REAL".into(),
+                        is_primary: false,
+                    },
                 ],
             },
         ]

@@ -1,8 +1,8 @@
 use core_ops::*;
-use nn::{GPT, generate_greedy, generate_with_sampling};
-use optim::{AdamW, Optimizer, CosineScheduler, LrScheduler, clip_grad_norm};
-use data::{BpeTokenizer, Tokenizer, TextDataset, Dataset, DataLoader};
-use serialize::{save_checkpoint, load_checkpoint};
+use data::{BpeTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
+use nn::{generate_greedy, generate_with_sampling, GPT};
+use optim::{clip_grad_norm, AdamW, CosineScheduler, LrScheduler, Optimizer};
+use serialize::{load_checkpoint, save_checkpoint};
 use std::time::Instant;
 
 fn main() {
@@ -18,7 +18,11 @@ fn main() {
     let vocab_size = tokenizer.vocab_size();
 
     println!("BPE vocab size: {} (target {})", vocab_size, bpe_vocab_size);
-    println!("Total tokens: {} (compression ratio: {:.1}x)", tokens.len(), text.len() as f32 / tokens.len() as f32);
+    println!(
+        "Total tokens: {} (compression ratio: {:.1}x)",
+        tokens.len(),
+        text.len() as f32 / tokens.len() as f32
+    );
 
     // 超参数
     let seq_len = 32;
@@ -36,7 +40,10 @@ fn main() {
     let model = GPT::new(vocab_size, d_model, n_head, n_layer, d_ff, seq_len);
     let params = model.parameters();
     let total_params: usize = params.iter().map(|p| p.numel()).sum();
-    println!("Model: {} layers, {} heads, d_model={}, d_ff={}", n_layer, n_head, d_model, d_ff);
+    println!(
+        "Model: {} layers, {} heads, d_model={}, d_ff={}",
+        n_layer, n_head, d_model, d_ff
+    );
     println!("Total parameters: {}", total_params);
 
     // 优化器和调度器
@@ -57,7 +64,9 @@ fn main() {
         let mut dl = DataLoader::new(&dataset, 1, true);
 
         while let Some((inputs_batch, targets_batch)) = dl.next_batch() {
-            if step >= max_steps { break; }
+            if step >= max_steps {
+                break;
+            }
 
             let input_ids = &inputs_batch[0];
             let target_ids = &targets_batch[0];
@@ -93,8 +102,10 @@ fn main() {
                 let avg_loss = total_loss / log_interval as f32;
                 let elapsed = start.elapsed().as_secs_f32();
                 let tps = total_tokens as f32 / elapsed;
-                println!("Step {}/{}: loss={:.4}, lr={:.6}, grad_norm={:.4}, tok/s={:.0}",
-                         step, max_steps, avg_loss, current_lr, grad_norm, tps);
+                println!(
+                    "Step {}/{}: loss={:.4}, lr={:.6}, grad_norm={:.4}, tok/s={:.0}",
+                    step, max_steps, avg_loss, current_lr, grad_norm, tps
+                );
                 total_loss = 0.0;
 
                 // Sample generation
