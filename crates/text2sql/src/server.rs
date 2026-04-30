@@ -133,6 +133,11 @@ button:hover{{background:#1d4ed8}}
   <div class="result" id="result">
     <div style="color:#94a3b8;font-size:.8rem">Generated SQL:</div>
     <div class="sql-output" id="sql"></div>
+    <div style="margin-top:.75rem;display:flex;gap:.5rem;align-items:center">
+      <input id="correct-input" type="text" placeholder="Edit SQL to correct it..." style="flex:1;padding:.5rem;font-family:monospace;font-size:.9rem">
+      <button onclick="submitCorrection()" style="background:#059669;padding:.5rem 1rem;font-size:.85rem">Correct</button>
+    </div>
+    <div id="correct-msg" style="color:#94a3b8;font-size:.75rem;margin-top:.4rem"></div>
   </div>
   <div class="examples">
     <h3>Try these:</h3>
@@ -157,10 +162,21 @@ function tryQ(q) {{ document.getElementById('q').value = q; ask(); }}
 async function ask() {{
   const q = document.getElementById('q').value.trim();
   if(!q) return;
+  document.getElementById('correct-msg').textContent = '';
   const r = await fetch('/query', {{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question:q}})}});
   const data = await r.json();
   document.getElementById('sql').textContent = data.sql;
+  document.getElementById('correct-input').value = data.sql;
   document.getElementById('result').classList.add('show');
+}}
+async function submitCorrection() {{
+  const q = document.getElementById('q').value.trim();
+  const wrongSql = document.getElementById('sql').textContent;
+  const correctSql = document.getElementById('correct-input').value.trim();
+  if(!q || !correctSql || correctSql === wrongSql) return;
+  const r = await fetch('/correct', {{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question:q,wrong_sql:wrongSql,correct_sql:correctSql}})}});
+  const data = await r.json();
+  document.getElementById('correct-msg').textContent = data.message;
 }}
 </script>
 </body>
