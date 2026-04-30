@@ -108,7 +108,7 @@ crates/
 | nn | 22+1 | Linear/LoRA/Embedding/LayerNorm/MHA/TransformerBlock/GPT/TokenTrie/受限解码 + LoRA微调端到端 |
 | optim | 10 | SGD/AdamW/clip/zero_grad/NaN guard/CosineScheduler |
 | data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
-| runtime-cuda | 12 | GPU add/mul/neg/scale/exp/log/gelu/relu/matmul + CPU 对比 |
+| runtime-cuda | 14 | GPU kernel(add/mul/neg/scale/exp/log/gelu/relu/matmul) + CPU对比 + GPU autograd端到端(forward/backward/training_step) |
 | serialize | 7 | checkpoint roundtrip + shape mismatch + safetensors(F32/F16/BF16/load_into) |
 | core-autograd | 3 | 基础 autograd |
 | hal | 15 | Backend trait + KernelProvider 20个算子(add/mul/neg/exp/log/relu/gelu/scale/matmul/batch_matmul/softmax/sgd/embedding/masked_fill/broadcast_add) |
@@ -116,7 +116,7 @@ crates/
 | distributed | 7 | allreduce本地工具 + gRPC集成(注册/心跳/allreduce/barrier) + 多步训练loop |
 | live-evolution | 16 | 双缓冲(swap/sync) + 增量训练 + EWC + 监控 + 端到端联动(正常/rollback) |
 | text2sql | 11 | schema DDL生成 + RAG prompt/rank/select + SQL约束生成(count/avg/sum/max/fallback) + SQLite集成 |
-| **合计** | **188** | **全部通过** |
+| **合计** | **190** | **全部通过** |
 
 ---
 
@@ -644,6 +644,8 @@ crates/
 
 8. **Text2SQL 端到端验证**：`sptorch-text2sql` demo 服务成功运行，自然语言→SQL 全链路通过。模板匹配阶段已能正确生成 COUNT/AVG/SUM/MAX 查询，RAG prompt 正确注入 DDL schema。下一步用神经模型替换模板匹配。
 
+9. **GPU Autograd 全链路验证**：`register_cuda_backend()` 后，`Device::Cuda(0)` 的 tensor 算子自动走 GPU kernel（add/mul/matmul via cuBLAS），backward 梯度正确。训练 step（forward + backward + SGD）端到端通过。
+
 ---
 
 ### 实验 8：Text2SQL 端到端 Demo（P8 验收）
@@ -775,18 +777,25 @@ crates/
 
 ## 下一步优先级
 
+### 已完成验证 ✅
+- ~~端到端集成验证~~：Text2SQL demo 全链路通过
+- ~~autograd 支持 GPU tensor~~：register_cuda_backend + forward/backward on Cuda(0)
+- ~~真实 LoRA 微调实验~~：loss 稳步下降，merge 验证通过
+- ~~分布式训练实战~~：2 worker × 3 步 AllReduce + Barrier 全链路
+- ~~release 构建优化~~：sptorch-text2sql.exe 仅 3.9MB
+
 ### 立即行动（2 周内）
 1. **产品展示级 Demo**：单页 HTML UI + `cli-text2sql` 打包，演示 Text2SQL 全流程
-2. **硬件点亮启动**：Tang 9k Verilog 脉动阵列 + Rust 串口库
+2. **GPU 常驻 tensor**：让 tensor 数据驻留 GPU（不每次 H2D/D2H），减少传输开销
 
 ### 核心攻坚（1-2 个月）
-3. **Tang 9k 端到端验证**：`hal-ffi` serial_backend + 32×32 MatMul 验证
-4. **神经化 Text2SQL**：LoRA 微调替代模板匹配，GPT-2 级模型生成 SQL
-5. **autograd GPU 完整支持**：`Storage::Device` 参与计算图，消除手动 backward
+3. **神经化 Text2SQL**：LoRA 微调替代模板匹配，GPT-2 级模型 + TokenTrie 受限解码生成 SQL
+4. **多 GPU 支持**：Device::Cuda(1..N)，多卡 DataParallel
+5. **分布式高可用 Checkpoint**：异步保存 + 断点续训
 
 ### 中期推进（3-5 个月）
-6. **SPTorch Studio 1.0**：Tauri 桌面应用，L1 Schema 导入 + L3 计算图预览
-7. **分布式训练实战**：真实双机 Ring-AllReduce + checkpoint + 断点续训
+6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览
+7. **ROCm/Metal 后端**：通过 hal-ffi 接入 AMD/Apple 硬件
 8. **自动纠错反馈环**：用户修正 SQL → 自动 EWC 增量学习
 
 ### 长期愿景（6-10 个月）
