@@ -1,8 +1,7 @@
 //! Neural Text2SQL: GPT + LoRA fine-tuning on SQL dataset with constrained decoding.
 
-use core_tensor::Tensor;
-use core_ops::{cross_entropy_loss, matmul, transpose, add, scale};
-use nn::{GPT, LoRALinear, Linear, Module, TokenTrie, generate_constrained};
+use core_ops::cross_entropy_loss;
+use nn::{GPT, TokenTrie, generate_constrained};
 use optim::{SGD, Optimizer, zero_grad};
 
 use crate::training_data::{SqlTokenizer, generate_training_data};
@@ -12,7 +11,7 @@ use crate::schema::TableSchema;
 /// Train a tiny GPT model with LoRA on Text2SQL data.
 /// Returns the trained model and tokenizer.
 pub fn train_text2sql_model(
-    schemas: &[TableSchema],
+    _schemas: &[TableSchema],
     num_steps: usize,
     lr: f32,
 ) -> (GPT, SqlTokenizer, f32) {

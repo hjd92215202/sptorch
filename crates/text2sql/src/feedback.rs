@@ -6,9 +6,8 @@
 //! 3. Performs a few gradient steps on the correction
 //! 4. Monitors for degradation and rolls back if needed
 
-use core_tensor::Tensor;
 use core_ops::cross_entropy_loss;
-use nn::{GPT, Module};
+use nn::GPT;
 use optim::{SGD, Optimizer, zero_grad};
 use crate::training_data::SqlTokenizer;
 
