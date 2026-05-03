@@ -77,7 +77,7 @@ pub fn generate_sql(
     let prompt_text = format!("{}{}", question, separator);
     let prompt_ids = tok.encode(&prompt_text);
 
-    // Build SQL vocabulary trie for constrained decoding
+    // Build SQL character-level trie from allowed vocabulary
     let sql_vocab = build_sql_vocabulary(schemas);
     let mut trie = TokenTrie::new();
     for word in &sql_vocab {
@@ -86,15 +86,23 @@ pub fn generate_sql(
             trie.insert(&word_ids);
         }
     }
+    // Also allow common SQL character sequences
+    for ch in " .,;()*>=<!'\"0123456789_\n".chars() {
+        let id = tok.encode(&ch.to_string());
+        if !id.is_empty() {
+            trie.insert(&id);
+        }
+    }
 
-    // Generate with temperature sampling (no hard constraint for now, trie is optional)
-    let result_ids = nn::generate_with_sampling(
+    // Use constrained decoding to force valid SQL tokens
+    let result_ids = generate_constrained(
         model,
         &prompt_ids,
         max_tokens,
         tok.vocab_size,
         0.7,
         10,
+        &trie,
     );
 
     // Decode only the generated part
