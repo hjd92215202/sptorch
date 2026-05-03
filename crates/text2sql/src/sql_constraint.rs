@@ -158,6 +158,64 @@ fn find_numeric_column(schemas: &[TableSchema], table_name: &str) -> Option<Stri
     })
 }
 
+/// Basic SQL syntax validator. Checks structural correctness, not semantics.
+pub fn validate_sql(sql: &str) -> SqlValidation {
+    let trimmed = sql.trim();
+    if trimmed.is_empty() {
+        return SqlValidation::Invalid("empty SQL".into());
+    }
+
+    let upper = trimmed.to_uppercase();
+
+    // Must start with a known statement keyword
+    let valid_starts = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER"];
+    if !valid_starts.iter().any(|k| upper.starts_with(k)) {
+        return SqlValidation::Invalid(format!("SQL must start with a statement keyword, got: {}", &trimmed[..trimmed.len().min(20)]));
+    }
+
+    // SELECT must have FROM (unless it's SELECT 1 or SELECT expression)
+    if upper.starts_with("SELECT") && !upper.contains("FROM") {
+        let after_select = upper.strip_prefix("SELECT").unwrap().trim();
+        // Allow SELECT <literal> or SELECT <function>
+        if !after_select.starts_with("1") && !after_select.starts_with("COUNT") && !after_select.starts_with("'") {
+            return SqlValidation::Warning("SELECT without FROM clause".into());
+        }
+    }
+
+    // Check balanced parentheses
+    let open = trimmed.chars().filter(|&c| c == '(').count();
+    let close = trimmed.chars().filter(|&c| c == ')').count();
+    if open != close {
+        return SqlValidation::Invalid(format!("unbalanced parentheses: {} open, {} close", open, close));
+    }
+
+    // Check balanced quotes
+    let single_quotes = trimmed.chars().filter(|&c| c == '\'').count();
+    if single_quotes % 2 != 0 {
+        return SqlValidation::Invalid("unbalanced single quotes".into());
+    }
+
+    // Should end with semicolon (warning, not error)
+    if !trimmed.ends_with(';') {
+        return SqlValidation::Warning("SQL should end with semicolon".into());
+    }
+
+    SqlValidation::Valid
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SqlValidation {
+    Valid,
+    Warning(String),
+    Invalid(String),
+}
+
+impl SqlValidation {
+    pub fn is_valid(&self) -> bool {
+        matches!(self, SqlValidation::Valid | SqlValidation::Warning(_))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,5 +304,44 @@ mod tests {
         let schemas = sample_schemas();
         let sql = generate_sql_stub("highest amount in orders", &schemas);
         assert_eq!(sql, "SELECT MAX(amount) FROM orders;");
+    }
+
+    // --- SQL validation tests ---
+
+    #[test]
+    fn test_validate_valid_sql() {
+        assert_eq!(validate_sql("SELECT * FROM users;"), SqlValidation::Valid);
+        assert_eq!(validate_sql("SELECT COUNT(*) FROM orders;"), SqlValidation::Valid);
+        assert_eq!(validate_sql("INSERT INTO users VALUES (1, 'test');"), SqlValidation::Valid);
+    }
+
+    #[test]
+    fn test_validate_empty() {
+        assert_eq!(validate_sql(""), SqlValidation::Invalid("empty SQL".into()));
+    }
+
+    #[test]
+    fn test_validate_bad_start() {
+        let r = validate_sql("HELLO world");
+        assert!(!r.is_valid());
+    }
+
+    #[test]
+    fn test_validate_unbalanced_parens() {
+        let r = validate_sql("SELECT COUNT(* FROM orders;");
+        assert_eq!(r, SqlValidation::Invalid("unbalanced parentheses: 1 open, 0 close".into()));
+    }
+
+    #[test]
+    fn test_validate_unbalanced_quotes() {
+        let r = validate_sql("SELECT * FROM users WHERE name = 'test;");
+        assert_eq!(r, SqlValidation::Invalid("unbalanced single quotes".into()));
+    }
+
+    #[test]
+    fn test_validate_no_semicolon() {
+        let r = validate_sql("SELECT * FROM users");
+        assert_eq!(r, SqlValidation::Warning("SQL should end with semicolon".into()));
+        assert!(r.is_valid()); // warning is still "valid enough"
     }
 }
