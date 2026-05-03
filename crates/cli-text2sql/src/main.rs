@@ -4,9 +4,67 @@ use text2sql::server::{start_server, AppState};
 
 #[tokio::main]
 async fn main() {
-    let db_path = std::env::args().nth(1);
+    let args: Vec<String> = std::env::args().collect();
+    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("serve");
 
-    let schemas = if let Some(ref path) = db_path {
+    match mode {
+        "train" => run_train(&args).await,
+        "serve" => run_serve(&args).await,
+        "query" => run_query(&args),
+        _ => {
+            eprintln!("Usage: sptorch-text2sql <mode> [options]");
+            eprintln!("  train [--steps N] [--lr F]   Train neural Text2SQL model");
+            eprintln!("  serve [db_path]              Start HTTP server (default)");
+            eprintln!("  query <question>             One-shot query (template mode)");
+            std::process::exit(1);
+        }
+    }
+}
+
+async fn run_train(args: &[String]) {
+    let mut steps = 200;
+    let mut lr = 0.01f32;
+
+    let mut i = 2;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--steps" => { steps = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(200); i += 2; }
+            "--lr" => { lr = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(0.01); i += 2; }
+            _ => { i += 1; }
+        }
+    }
+
+    eprintln!("[sptorch-text2sql] training neural model: {} steps, lr={}", steps, lr);
+    let schemas = demo_schemas();
+    let (model, tok, final_loss) = text2sql::neural::train_text2sql_model(&schemas, steps, lr);
+    eprintln!("[sptorch-text2sql] training complete, final loss: {:.4}", final_loss);
+
+    // Save checkpoint
+    let params = model.parameters();
+    if let Err(e) = serialize::save_checkpoint("text2sql_model.sptc", &params) {
+        eprintln!("failed to save checkpoint: {}", e);
+    } else {
+        eprintln!("[sptorch-text2sql] model saved to text2sql_model.sptc");
+    }
+
+    // Test generation
+    let test_questions = [
+        "How many employees are there?",
+        "What is the average salary?",
+        "total sales amount",
+    ];
+    eprintln!("\n[sptorch-text2sql] test generation:");
+    for q in &test_questions {
+        let sql = text2sql::neural::generate_sql(&model, &tok, q, &schemas, 50);
+        let valid = text2sql::sql_constraint::validate_sql(&sql);
+        eprintln!("  Q: {} => {} [{}]", q, sql, if valid.is_valid() { "valid" } else { "INVALID" });
+    }
+}
+
+async fn run_serve(args: &[String]) {
+    let db_path = args.get(2);
+
+    let schemas = if let Some(path) = db_path {
         let url = format!("sqlite:{}", path);
         eprintln!("[sptorch-text2sql] loading schema from {}", url);
         match text2sql::schema::fetch_sqlite_schema(&url).await {
@@ -17,7 +75,7 @@ async fn main() {
             }
         }
     } else {
-        eprintln!("[sptorch-text2sql] no database specified, using demo schema");
+        eprintln!("[sptorch-text2sql] using demo schema");
         demo_schemas()
     };
 
@@ -32,12 +90,29 @@ async fn main() {
         tokenizer: None,
     });
     let addr = "0.0.0.0:8080";
-    eprintln!("[sptorch-text2sql] starting server on {}", addr);
-    eprintln!("[sptorch-text2sql] POST /query {{\"question\": \"...\"}}\n");
+    eprintln!("[sptorch-text2sql] server on http://localhost:8080");
+    eprintln!("  GET  /         Web UI");
+    eprintln!("  POST /query    {{\"question\": \"...\"}}\n");
 
     if let Err(e) = start_server(addr, state).await {
         eprintln!("server error: {}", e);
         std::process::exit(1);
+    }
+}
+
+fn run_query(args: &[String]) {
+    let question = args[2..].join(" ");
+    if question.is_empty() {
+        eprintln!("Usage: sptorch-text2sql query <question>");
+        std::process::exit(1);
+    }
+
+    let schemas = demo_schemas();
+    let sql = text2sql::sql_constraint::generate_sql_stub(&question, &schemas);
+    let valid = text2sql::sql_constraint::validate_sql(&sql);
+    println!("{}", sql);
+    if !valid.is_valid() {
+        eprintln!("WARNING: generated SQL may be invalid");
     }
 }
 
@@ -46,76 +121,28 @@ fn demo_schemas() -> Vec<TableSchema> {
         TableSchema {
             table_name: "employees".into(),
             columns: vec![
-                ColumnSchema {
-                    name: "id".into(),
-                    dtype: "INTEGER".into(),
-                    is_primary: true,
-                },
-                ColumnSchema {
-                    name: "name".into(),
-                    dtype: "TEXT".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "department".into(),
-                    dtype: "TEXT".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "salary".into(),
-                    dtype: "REAL".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "hire_date".into(),
-                    dtype: "TEXT".into(),
-                    is_primary: false,
-                },
+                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
+                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema { name: "department".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema { name: "salary".into(), dtype: "REAL".into(), is_primary: false },
+                ColumnSchema { name: "hire_date".into(), dtype: "TEXT".into(), is_primary: false },
             ],
         },
         TableSchema {
             table_name: "departments".into(),
             columns: vec![
-                ColumnSchema {
-                    name: "id".into(),
-                    dtype: "INTEGER".into(),
-                    is_primary: true,
-                },
-                ColumnSchema {
-                    name: "name".into(),
-                    dtype: "TEXT".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "budget".into(),
-                    dtype: "REAL".into(),
-                    is_primary: false,
-                },
+                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
+                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema { name: "budget".into(), dtype: "REAL".into(), is_primary: false },
             ],
         },
         TableSchema {
             table_name: "sales".into(),
             columns: vec![
-                ColumnSchema {
-                    name: "id".into(),
-                    dtype: "INTEGER".into(),
-                    is_primary: true,
-                },
-                ColumnSchema {
-                    name: "employee_id".into(),
-                    dtype: "INTEGER".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "amount".into(),
-                    dtype: "REAL".into(),
-                    is_primary: false,
-                },
-                ColumnSchema {
-                    name: "date".into(),
-                    dtype: "TEXT".into(),
-                    is_primary: false,
-                },
+                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
+                ColumnSchema { name: "employee_id".into(), dtype: "INTEGER".into(), is_primary: false },
+                ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
+                ColumnSchema { name: "date".into(), dtype: "TEXT".into(), is_primary: false },
             ],
         },
     ]
