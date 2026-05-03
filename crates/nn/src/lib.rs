@@ -82,6 +82,35 @@ impl Module for Linear {
 
 // ============ Embedding ============
 
+// ============ Dropout ============
+
+pub struct Dropout {
+    pub rate: f32,
+    pub training: bool,
+}
+
+impl Dropout {
+    pub fn new(rate: f32) -> Self {
+        Dropout { rate, training: true }
+    }
+
+    pub fn forward(&self, input: &Tensor) -> Tensor {
+        if !self.training || self.rate == 0.0 {
+            return input.clone();
+        }
+        let mut rng = rand::thread_rng();
+        let data = input.contiguous_data();
+        let scale = 1.0 / (1.0 - self.rate);
+        let out: Vec<f32> = data.iter().map(|&x| {
+            if rng.gen::<f32>() < self.rate { 0.0 } else { x * scale }
+        }).collect();
+        Tensor::new(out, input.shape())
+    }
+
+    pub fn eval(&mut self) { self.training = false; }
+    pub fn train(&mut self) { self.training = true; }
+}
+
 // ============ LoRA Linear ============
 
 /// LoRA adapter wrapping a frozen Linear layer.
@@ -1251,5 +1280,44 @@ mod tests {
         assert_eq!(result[2], 1, "second generated token should be 1 per trie constraint");
         // Third must be 2
         assert_eq!(result[3], 2, "third generated token should be 2 per trie constraint");
+    }
+
+    // --- Dropout tests ---
+
+    #[test]
+    fn test_dropout_eval_passthrough() {
+        let mut drop = Dropout::new(0.5);
+        drop.eval();
+        let input = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
+        let out = drop.forward(&input);
+        assert_eq!(out.data(), vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn test_dropout_zero_rate() {
+        let drop = Dropout::new(0.0);
+        let input = Tensor::new(vec![1.0, 2.0, 3.0], vec![3]);
+        let out = drop.forward(&input);
+        assert_eq!(out.data(), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_dropout_train_has_zeros() {
+        let drop = Dropout::new(0.9); // 90% dropout — almost all zeros
+        let input = Tensor::new(vec![1.0; 100], vec![100]);
+        let out = drop.forward(&input);
+        let zeros = out.data().iter().filter(|&&x| x == 0.0).count();
+        assert!(zeros > 50, "with 90% dropout, most values should be zero, got {} zeros", zeros);
+    }
+
+    #[test]
+    fn test_dropout_scale_preserves_mean() {
+        // With inverted dropout, E[output] ≈ E[input]
+        let drop = Dropout::new(0.5);
+        let input = Tensor::new(vec![2.0; 10000], vec![10000]);
+        let out = drop.forward(&input);
+        let mean: f32 = out.data().iter().sum::<f32>() / 10000.0;
+        // Mean should be close to 2.0 (within statistical noise)
+        assert!((mean - 2.0).abs() < 0.2, "mean should be ~2.0, got {}", mean);
     }
 }
