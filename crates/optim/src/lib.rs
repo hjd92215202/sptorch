@@ -48,6 +48,25 @@ pub fn clip_grad_norm(params: &[Tensor], max_norm: f32) -> f32 {
 
 // ============ NaN/Inf guard ============
 
+// ============ Gradient Accumulation ============
+
+/// Scale all parameter gradients by a factor (e.g. 1/accum_steps for gradient accumulation).
+pub fn scale_gradients(params: &[Tensor], factor: f32) {
+    for p in params {
+        let inner = p.0.read().unwrap();
+        if let Some(ref grad_tensor) = inner.grad {
+            let g_inner = grad_tensor.0.write().unwrap();
+            let mut g_storage = g_inner.storage.write().unwrap();
+            let g_slice = g_storage.as_cpu_slice_mut();
+            for v in g_slice.iter_mut() {
+                *v *= factor;
+            }
+        }
+    }
+}
+
+// ============ NaN/Inf guard ============
+
 fn has_nan_inf(data: &[f32]) -> bool {
     data.iter().any(|x| x.is_nan() || x.is_infinite())
 }
@@ -353,5 +372,27 @@ mod tests {
         assert!((lr_start - 0.001).abs() < 1e-6);
         assert!(lr_mid < lr_start && lr_mid > lr_end);
         assert!((lr_end - 0.0001).abs() < 1e-6); // min_lr = 0.1 * base
+    }
+
+    #[test]
+    fn test_gradient_accumulation_basic() {
+        let p = Tensor::with_grad(vec![1.0, 2.0], vec![2], true);
+        let params = vec![p.clone()];
+        let mut opt = SGD::new(params.clone(), 0.1, 0.0);
+
+        // Simulate 3 micro-steps of gradient accumulation
+        // Each micro-step adds grad [1.0, 1.0]
+        for _ in 0..3 {
+            // Manually set grad (simulating backward)
+            p.accum_grad(&Tensor::new(vec![1.0, 1.0], vec![2]));
+        }
+        // Accumulated grad = [3.0, 3.0], scale by 1/3
+        scale_gradients(&params, 1.0 / 3.0);
+        opt.step();
+
+        let w = p.data();
+        // w = [1.0 - 0.1*1.0, 2.0 - 0.1*1.0] = [0.9, 1.9]
+        assert!((w[0] - 0.9).abs() < 1e-6);
+        assert!((w[1] - 1.9).abs() < 1e-6);
     }
 }
