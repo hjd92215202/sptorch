@@ -16,6 +16,8 @@ pub struct QueryResponse {
     pub sql: String,
     pub explanation: String,
     pub mode: String,
+    pub valid: bool,
+    pub validation: String,
 }
 
 pub struct AppState {
@@ -25,22 +27,37 @@ pub struct AppState {
 }
 
 async fn query_handler(State(state): State<Arc<AppState>>, Json(req): Json<QueryRequest>) -> Json<QueryResponse> {
-    // Try neural model first, fall back to template matching
-    if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
-        let sql = crate::neural::generate_sql(model, tok, &req.question, &state.schema_info, 60);
-        Json(QueryResponse {
-            sql,
-            explanation: format!("Neural model generation for: {}", req.question),
-            mode: "neural".into(),
-        })
+    use crate::sql_constraint::{validate_sql, SqlValidation};
+
+    let (sql, mode) = if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
+        let neural_sql = crate::neural::generate_sql(model, tok, &req.question, &state.schema_info, 60);
+        let v = validate_sql(&neural_sql);
+        if v.is_valid() {
+            (neural_sql, "neural".to_string())
+        } else {
+            // Neural output invalid, fallback to template
+            let template_sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
+            (template_sql, "template (neural fallback)".to_string())
+        }
     } else {
         let sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
-        Json(QueryResponse {
-            sql,
-            explanation: format!("Template matching for: {}", req.question),
-            mode: "template".into(),
-        })
-    }
+        (sql, "template".to_string())
+    };
+
+    let validation = validate_sql(&sql);
+    let (valid, validation_msg) = match &validation {
+        SqlValidation::Valid => (true, "valid".to_string()),
+        SqlValidation::Warning(w) => (true, format!("warning: {}", w)),
+        SqlValidation::Invalid(e) => (false, format!("invalid: {}", e)),
+    };
+
+    Json(QueryResponse {
+        sql,
+        explanation: format!("{} for: {}", mode, req.question),
+        mode,
+        valid,
+        validation: validation_msg,
+    })
 }
 
 async fn health_handler() -> &'static str {
