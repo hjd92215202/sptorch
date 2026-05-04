@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/sptorch",
     "crates/core-tensor",
     "crates/core-autograd",
     "crates/core-ops",
@@ -16,8 +17,6 @@ members = [
     "crates/mock-npu",
     "crates/distributed",
     "crates/live-evolution",
-    "products/text2sql",
-    "products/cli-text2sql",
     "studio/src-tauri",
 ]
 resolver = "2"

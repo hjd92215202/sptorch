@@ -27,6 +27,15 @@ jobs:
       - name: Test
         run: cargo test --workspace --exclude runtime-cuda --exclude cli-train-gpu --exclude distributed
 
+  product-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Product tests
+        run: cargo test --manifest-path products/Cargo.toml --workspace
+
   frontend-test:
     runs-on: ubuntu-latest
     defaults:

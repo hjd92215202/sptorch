@@ -52,7 +52,7 @@ async fn run_train(args: &[String]) {
     eprintln!("[sptorch-text2sql] training complete, final loss: {:.4}", final_loss);
 
     let params = model.parameters();
-    if let Err(e) = serialize::save_checkpoint("text2sql_model.sptc", &params) {
+    if let Err(e) = sptorch::serialize::save_checkpoint("text2sql_model.sptc", &params) {
         eprintln!("failed to save checkpoint: {}", e);
     } else {
         eprintln!("[sptorch-text2sql] model saved to text2sql_model.sptc");

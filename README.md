@@ -23,6 +23,7 @@
 
 ```text
 crates/
+  sptorch/          框架统一门面 crate（供外部产品依赖）
   core-tensor/      Tensor、Shape、DType(F32/F16/BF16)、Storage(Cpu/Device)、autograd backward
   core-autograd/     计算图、反向调度（拓扑排序）
   core-ops/          23 个可微分算子（前向+反向+数值梯度检查）
@@ -49,7 +50,7 @@ studio/
 ## 快速开始
 
 ```bash
-# 运行全量测试（211 个，以 roadmap 口径为准）
+# 运行框架 workspace 测试
 cargo test --workspace
 
 # CPU 训练 MiniGPT
@@ -59,7 +60,10 @@ cargo run --release -p cli-train
 cargo run --release -p cli-train-gpu
 
 # Text2SQL 服务（生态样板产品）
-cargo run --release -p cli-text2sql
+cargo run --release --manifest-path products/Cargo.toml -p cli-text2sql
+
+# 产品 workspace 测试
+cargo test --manifest-path products/Cargo.toml --workspace
 ```
 
 ## 测试覆盖

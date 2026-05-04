@@ -20,4 +20,9 @@ cargo clippy --workspace -- -D warnings 2>&1 || {
 }
 echo ""
 
+echo "[4/4] product workspace tests"
+cargo test --manifest-path products/Cargo.toml --workspace 2>&1
+echo "  ✓ product tests passed"
+echo ""
+
 echo "=== CI complete ==="

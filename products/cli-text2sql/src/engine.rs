@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use nn::GPT;
-use optim::{zero_grad, Optimizer, SGD};
+use sptorch::nn::GPT;
+use sptorch::optim::{zero_grad, Optimizer, SGD};
 use text2sql::schema::TableSchema;
 use text2sql::server::{ProductCorrection, ProductInferenceEngine};
 
@@ -105,7 +105,7 @@ pub fn train_text2sql_model(_schemas: &[TableSchema], num_steps: usize, lr: f32)
         let targets = &ids[1..];
 
         let logits = model.forward_ids(input);
-        let loss = core_ops::cross_entropy_loss(&logits, targets);
+        let loss = sptorch::core_ops::cross_entropy_loss(&logits, targets);
         loss.backward();
         opt.step();
         last_loss = loss.data()[0];
@@ -124,7 +124,7 @@ pub fn generate_sql(
     let prompt_text = format!("{} => ", question);
     let prompt_ids = tok.encode(&prompt_text);
 
-    let mut trie = nn::TokenTrie::new();
+    let mut trie = sptorch::nn::TokenTrie::new();
     for word in &text2sql::sql_constraint::build_sql_vocabulary(schemas) {
         let word_ids = tok.encode(word);
         if !word_ids.is_empty() {
@@ -138,7 +138,7 @@ pub fn generate_sql(
         }
     }
 
-    let result_ids = nn::generate_constrained(model, &prompt_ids, max_tokens, tok.vocab_size, 0.7, 10, &trie);
+    let result_ids = sptorch::nn::generate_constrained(model, &prompt_ids, max_tokens, tok.vocab_size, 0.7, 10, &trie);
     let generated = &result_ids[prompt_ids.len()..];
     let sql = tok.decode(generated);
     if let Some(pos) = sql.find(';') {

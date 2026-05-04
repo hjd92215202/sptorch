@@ -87,6 +87,7 @@
 
 ```
 crates/
+  sptorch/          框架统一门面 crate（供外部产品依赖）
   core-tensor/      Tensor 元信息、Shape、Stride、DType(F32/F16/BF16)、Storage(Cpu/Device)、DeviceBuffer trait、autograd backward
   core-autograd/     计算图、反向调度（拓扑排序）
   core-ops/          20+ 算子（前向+反向+数值梯度检查），dispatch matmul
@@ -844,6 +845,7 @@ studio/
 - [x] CI 接入：新增 `frontend-test` job，执行 `studio` 前端 Vitest 测试
 - [ ] v1.1：`hal-ffi` ABI 扩展（真实 fence 信号、队列深度与硬件状态）
 - [x] 产品解耦（框架/产品边界）：`text2sql` 收敛为框架无关服务层，训练/推理引擎迁移至 `cli-text2sql` 产品运行时
+- [x] Cargo 工程解耦：框架根 workspace 与 `products/` 独立 workspace 分离，产品通过 `sptorch` 门面 crate 引入框架能力
 
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览

@@ -1,0 +1,20 @@
+﻿[package]
+name = "sptorch"
+version = "0.1.0"
+edition = "2021"
+description = "SPTorch framework facade crate"
+license = "MIT"
+
+[dependencies]
+core-tensor = { path = "../core-tensor" }
+core-autograd = { path = "../core-autograd" }
+core-ops = { path = "../core-ops" }
+nn = { path = "../nn" }
+optim = { path = "../optim" }
+data = { path = "../data" }
+serialize = { path = "../serialize" }
+hal = { path = "../hal" }
+hal-ffi = { path = "../hal-ffi" }
+distributed = { path = "../distributed" }
+live-evolution = { path = "../live-evolution" }
+versioning = { path = "../versioning" }
