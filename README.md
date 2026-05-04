@@ -1,6 +1,12 @@
 # SPTorch — Rust 工业级异构 AI 引擎
 
-用 Rust 从零构建的类 PyTorch 深度学习框架，覆盖张量计算、自动微分、GPU 加速、分布式训练、在线学习与分层 IDE 生态。
+用 Rust 从零构建的全栈 AI 平台，覆盖张量计算、自动微分、GPU 加速、分布式训练、在线学习、硬件抽象与分层 IDE 生态。
+
+## 项目架构定位（统一术语）
+
+- **平台层（母体）**：`SPTorch` 是全栈 AI 平台/框架体系（引擎 + 协议 + 硬件抽象 + IDE 生态）。
+- **控制中枢层**：`SPTorch Studio` 是平台控制中枢，负责观测、编排、调试与交付。
+- **产品层**：工业版 `Text2SQL` 是平台生态中的首个生产级训练产品（样板产品），用于验证平台能力闭环。
 
 **四大核心愿景：**
 
@@ -11,7 +17,7 @@
 
 **能力验证：**
 
-- **Text2SQL 一体机**：四大愿景的首个产品化验证，Rust 单二进制交付（3.9MB），证明框架从训练→推理→产品的完整闭环能力
+- **Text2SQL 一体机**：生态中的首个生产级样板产品，Rust 单二进制交付（3.9MB），验证平台从训练→推理→交付的完整闭环能力
 
 ## Workspace 结构（17 crates）
 
@@ -30,7 +36,7 @@ crates/
   runtime-cuda/      CUDA 后端：nvrtc kernel + cuBLAS matmul
   distributed/       分布式引擎：gRPC coordinator/worker + AllReduce + Barrier
   live-evolution/    实时进化：双缓冲参数 + 增量训练 + EWC + 在线监控
-  text2sql/          Text2SQL 产品：Axum API + SQLx + RAG + SQL 约束生成
+  text2sql/          Text2SQL 样板产品：Axum API + SQLx + RAG + SQL 约束生成
   cli-train/         CPU MiniGPT 训练入口
   cli-train-gpu/     GPU 训练入口（Attention 模型）
   cli-text2sql/      Text2SQL 服务入口
@@ -48,7 +54,7 @@ cargo run --release -p cli-train
 # GPU 训练（需要 CUDA 12.x）
 cargo run --release -p cli-train-gpu
 
-# Text2SQL 服务
+# Text2SQL 服务（生态样板产品）
 cargo run --release -p cli-text2sql
 ```
 
@@ -83,14 +89,15 @@ cargo run --release -p cli-text2sql
 
 - 已新增 `crates/versioning`：版本化张量协议（`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics`）
 - 已新增 `studio/`（Tauri 2 + React）：
-  - 后端 `engine_bridge`：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`（模拟）
+  - 后端 `engine_bridge`：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
+  - 指标流已改为直接订阅 `live-evolution` 训练事件总线（`Metrics/VersionCommit/Fence/HardwareState`），不再使用本地定时模拟推送
   - 前端核心面板：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
 - 已新增最小测试基线：
   - 前端：Vitest + RTL（Dashboard / Memory / Fence 组件）
   - 前端：App 事件流集成测试（含 Fence Error 恢复分支）与 `api.ts` 桥接测试
   - Rust：`engine_bridge` 集成测试分层到 `studio/src-tauri/tests`
 - CI 已接入前端测试：GitHub Actions 增加 `frontend-test` job（`npm ci` + `npm run test`）
-- 当前状态：v1 使用模拟 Fence/队列深度；真实 `hal-ffi` ABI 扩展列入 v1.1
+- 当前状态：v1 指标流来自真实 `live-evolution` 训练过程；Fence/队列深度仍为可观测模拟信号，真实 `hal-ffi` ABI 扩展列入 v1.1
 
 ## 硬件环境
 

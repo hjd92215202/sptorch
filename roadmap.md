@@ -1,6 +1,6 @@
 # SPTorch 开发路线图 v5.1 — 全栈 AI 生产力中枢
 
-> 用 Rust 从零构建的工业级异构 AI 引擎，**软件已达 90% 完成度，正在向全栈 IDE 生态演进**。
+> 用 Rust 从零构建的工业级异构 AI 平台，**软件已达 90% 完成度，正在向全栈 IDE 生态演进**。
 >
 > **四大核心愿景（The Four Pillars）：**
 > - **算力平权（AI Hadoop）**：以太网连接廉价机器，AllReduce 分布式训练，打破算力垄断
@@ -9,9 +9,15 @@
 > - **开发者主权（Developer Sovereignty）**：分层 IDE（SPTorch Studio），让业务人员拥有 AI，让硬件工程师指挥模型
 >
 > **能力验证（Showcase）：**
-> - **Text2SQL 一体机**：四大愿景的首个产品化验证——单二进制交付（3.9MB），私有化部署，证明框架从训练到推理到产品的完整闭环能力
+> - **Text2SQL 一体机**：生态中的首个生产级样板产品——单二进制交付（3.9MB），私有化部署，验证平台从训练到推理到交付的完整闭环能力
 
-**核心突破**：`BACKEND_REGISTRY` 全局注册表为 **Tang 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。SPTorch 不仅是框架，更是一套**工业流水线**——愿景是底座，IDE 分层是操作台，Text2SQL 是第一个能力验证产品。
+**核心突破**：`BACKEND_REGISTRY` 全局注册表为 **Tang 9k** 或 **自研 DDR4 NPU 载板** 提供了标准驱动插入点。SPTorch 不仅是框架，更是一套**工业流水线**——愿景是底座，IDE 分层是操作台，Text2SQL 是第一个生产级样板产品。
+
+## 项目架构定位（统一术语）
+
+- **平台层（母体）**：`SPTorch` 是全栈 AI 平台/框架体系（引擎 + 协议 + 硬件抽象 + IDE 生态）。
+- **控制中枢层**：`SPTorch Studio` 是平台控制中枢，负责观测、编排、调试与交付。
+- **产品层**：工业版 `Text2SQL` 是平台生态中的首个生产级训练产品（样板产品），用于验证平台能力闭环。
 
 ---
 
@@ -822,7 +828,8 @@ crates/
 
 - [x] Workspace 接入：新增 `crates/versioning` 与 `studio/src-tauri`
 - [x] 协议层落地：`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics` 与事件常量
-- [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`（模拟）
+- [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
+- [x] 指标流改造：Studio 事件流由 `live-evolution` 真实训练过程直推（`Metrics/VersionCommit/Fence/HardwareState`）
 - [x] 可视化首版落地：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
 - [x] 测试分层：前端 Vitest+RTL 最小基线 + Rust `engine_bridge` 集成测试目录化
 - [x] 事件流测试：`api.ts` 桥接测试 + `App.tsx` 事件驱动集成测试（含 Fence Error 恢复路径）
