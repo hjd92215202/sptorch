@@ -1,8 +1,8 @@
-[package]
+﻿[package]
 name = "core-autograd"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 # 告诉 Cargo，core-tensor 在隔壁文件夹
-core-tensor = { path = "../core-tensor" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }

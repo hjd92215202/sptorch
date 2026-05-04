@@ -1,9 +1,9 @@
-[package]
+﻿[package]
 name = "hal-ffi"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hal = { path = "../hal" }
-core-tensor = { path = "../core-tensor" }
+hal = { version = "0.1.0", path = "../hal" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
 libloading = "0.8"

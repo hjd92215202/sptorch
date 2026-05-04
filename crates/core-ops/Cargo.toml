@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "core-ops"
 version = "0.1.0"
 edition = "2021"
@@ -7,6 +7,6 @@ edition = "2021"
 cuda = ["runtime-cuda"]
 
 [dependencies]
-core-tensor = { path = "../core-tensor" }
-runtime-cuda = { path = "../runtime-cuda", optional = true }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
+runtime-cuda = { version = "0.1.0", path = "../runtime-cuda", optional = true }
 matrixmultiply = "0.3"

@@ -1,11 +1,11 @@
-[package]
+﻿[package]
 name = "distributed"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core-tensor = { path = "../core-tensor" }
-serialize = { path = "../serialize" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
+serialize = { version = "0.1.0", path = "../serialize" }
 tokio = { version = "1", features = ["full"] }
 tonic = "0.12"
 prost = "0.13"

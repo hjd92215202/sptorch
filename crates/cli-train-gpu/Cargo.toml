@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "cli-train-gpu"
 version = "0.1.0"
 edition = "2021"
@@ -9,7 +9,7 @@ name = "sptorch-train-gpu"
 path = "src/main.rs"
 
 [dependencies]
-runtime-cuda = { path = "../runtime-cuda" }
-data = { path = "../data" }
+runtime-cuda = { version = "0.1.0", path = "../runtime-cuda" }
+data = { version = "0.1.0", path = "../data" }
 rand = "0.8"
 

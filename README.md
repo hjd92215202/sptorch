@@ -68,6 +68,7 @@ cargo test --manifest-path products/Cargo.toml --workspace
 ```
 
 发布与版本策略见 [docs.release-strategy.md](docs.release-strategy.md)。
+发布顺序清单见 [docs.publish-order.md](docs.publish-order.md)。
 
 ## 发布前清单（当前状态）
 

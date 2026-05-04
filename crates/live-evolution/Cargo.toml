@@ -1,12 +1,12 @@
-[package]
+﻿[package]
 name = "live-evolution"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core-tensor = { path = "../core-tensor" }
-core-ops = { path = "../core-ops" }
-nn = { path = "../nn" }
-optim = { path = "../optim" }
-versioning = { path = "../versioning" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
+core-ops = { version = "0.1.0", path = "../core-ops" }
+nn = { version = "0.1.0", path = "../nn" }
+optim = { version = "0.1.0", path = "../optim" }
+versioning = { version = "0.1.0", path = "../versioning" }
 tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }

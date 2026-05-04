@@ -1,12 +1,12 @@
-[package]
+﻿[package]
 name = "nn"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core-tensor = { path = "../core-tensor" }
-core-ops = { path = "../core-ops" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
+core-ops = { version = "0.1.0", path = "../core-ops" }
 rand = "0.8"
 
 [dev-dependencies]
-optim = { path = "../optim" }
+optim = { version = "0.1.0", path = "../optim" }
