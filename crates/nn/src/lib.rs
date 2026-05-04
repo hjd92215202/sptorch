@@ -102,15 +102,20 @@ impl Dropout {
         let data = input.contiguous_data();
         let scale = 1.0 / (1.0 - self.rate);
         // Build mask tensor and use mul() to keep autograd graph connected
-        let mask_data: Vec<f32> = data.iter().map(|_| {
-            if rng.gen::<f32>() < self.rate { 0.0 } else { scale }
-        }).collect();
+        let mask_data: Vec<f32> = data
+            .iter()
+            .map(|_| if rng.gen::<f32>() < self.rate { 0.0 } else { scale })
+            .collect();
         let mask = Tensor::new(mask_data, input.shape());
         mul(input, &mask)
     }
 
-    pub fn eval(&mut self) { self.training = false; }
-    pub fn train(&mut self) { self.training = true; }
+    pub fn eval(&mut self) {
+        self.training = false;
+    }
+    pub fn train(&mut self) {
+        self.training = true;
+    }
 }
 
 // ============ LoRA Linear ============
@@ -667,8 +672,13 @@ impl TransformerBlock {
     }
 
     pub fn set_training(&mut self, training: bool) {
-        if training { self.attn_dropout.train(); self.ffn_dropout.train(); }
-        else { self.attn_dropout.eval(); self.ffn_dropout.eval(); }
+        if training {
+            self.attn_dropout.train();
+            self.ffn_dropout.train();
+        } else {
+            self.attn_dropout.eval();
+            self.ffn_dropout.eval();
+        }
     }
 
     pub fn parameters(&self) -> Vec<Tensor> {
@@ -1317,7 +1327,11 @@ mod tests {
         let input = Tensor::new(vec![1.0; 100], vec![100]);
         let out = drop.forward(&input);
         let zeros = out.data().iter().filter(|&&x| x == 0.0).count();
-        assert!(zeros > 50, "with 90% dropout, most values should be zero, got {} zeros", zeros);
+        assert!(
+            zeros > 50,
+            "with 90% dropout, most values should be zero, got {} zeros",
+            zeros
+        );
     }
 
     #[test]

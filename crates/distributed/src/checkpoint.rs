@@ -1,9 +1,9 @@
 //! Distributed async checkpoint: non-blocking save/load with resume support.
 
 use core_tensor::Tensor;
-use std::path::{Path, PathBuf};
-use std::io;
 use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 /// Async checkpoint manager: saves model state in background without blocking training.
 pub struct CheckpointManager {
@@ -50,7 +50,10 @@ impl CheckpointManager {
             if let Ok(entries) = fs::read_dir(&self.save_dir) {
                 for entry in entries.flatten() {
                     let name = entry.file_name().to_string_lossy().to_string();
-                    if let Some(s) = name.strip_prefix("checkpoint_step_").and_then(|s| s.strip_suffix(".sptc")) {
+                    if let Some(s) = name
+                        .strip_prefix("checkpoint_step_")
+                        .and_then(|s| s.strip_suffix(".sptc"))
+                    {
                         if let Ok(step) = s.parse::<u64>() {
                             steps.push(step);
                         }

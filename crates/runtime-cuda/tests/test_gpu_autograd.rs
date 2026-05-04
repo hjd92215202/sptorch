@@ -1,8 +1,8 @@
 //! End-to-end test: register CUDA backend, create tensors on Cuda(0),
 //! run autograd ops (add/mul/matmul + backward), verify GPU dispatch works.
 
-use core_tensor::{Tensor, Device};
-use core_ops::{add, mul, matmul, sum};
+use core_ops::{add, matmul, mul, sum};
+use core_tensor::{Device, Tensor};
 
 #[test]
 fn test_gpu_autograd_forward_backward() {

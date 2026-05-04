@@ -617,20 +617,24 @@ mod tests {
 
 // ============ BackendDispatch implementation ============
 
-use core_tensor::{BackendDispatch, Device, register_backend};
+use core_tensor::{register_backend, BackendDispatch, Device};
 use std::sync::OnceLock;
 
 static CUDA_BACKEND: OnceLock<Option<CudaBackend>> = OnceLock::new();
 
 fn get_or_init_cuda() -> Option<&'static CudaBackend> {
-    CUDA_BACKEND.get_or_init(|| {
-        match CudaBackend::new(0) {
+    CUDA_BACKEND
+        .get_or_init(|| match CudaBackend::new(0) {
             Ok(b) => {
-                if b.load_kernels().is_ok() { Some(b) } else { None }
+                if b.load_kernels().is_ok() {
+                    Some(b)
+                } else {
+                    None
+                }
             }
             Err(_) => None,
-        }
-    }).as_ref()
+        })
+        .as_ref()
 }
 
 /// Register the CUDA backend into the global dispatch registry.
