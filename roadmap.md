@@ -850,6 +850,7 @@ studio/
 - [x] 发布前清单执行：`sptorch` 元数据补齐 + 非发布目标 `publish=false` + `core-tensor` 打包链路验证通过
 - [ ] 发布阻塞项：`sptorch` 打包仍需先发布/可解析其内部依赖 crate（如 `core-autograd` 等）
 - [x] 发布序列落地：已补齐 `docs.publish-order.md`（按依赖拓扑的 crates.io 发布顺序与执行模板）
+- [x] 首批发布前最终检查：`core-tensor` / `data` / `versioning` 完成 metadata+README 补齐，并通过 `cargo publish --dry-run --registry crates-io`
 
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览

@@ -50,6 +50,20 @@ cargo publish -p <crate>
 
 这说明发布链路设计正确，后续需按顺序真实发布并等待索引同步后继续。
 
+## G. 首批可发布 crate 最终检查（2026-05-05）
+
+目标 crate：`core-tensor`、`data`、`versioning`
+
+- 已补齐 metadata：`description` / `license` / `repository` / `homepage` / `documentation` / `readme` / `keywords` / `categories`
+- 已新增 crate 级 `README.md`
+- `cargo package --list` 检查通过（包内容包含 README 与源码）
+- `cargo publish --dry-run --registry crates-io` 检查通过
+
+注意：
+
+- 当前环境默认 registry 被替换为 `ustc`，真实发布或 dry-run 需显式带 `--registry crates-io`。
+- `data` 这个 crate 名在 crates.io 已存在；如需公开发布建议改名（例如 `sptorch-data`）后再执行正式发布。
+
 ## F. 演练脚本
 
 - Bash: `scripts/publish-rehearsal.sh`

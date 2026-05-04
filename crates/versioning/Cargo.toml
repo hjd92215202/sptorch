@@ -1,7 +1,15 @@
-﻿[package]
+[package]
 name = "versioning"
 version = "0.1.0"
 edition = "2021"
+description = "Versioned tensor protocol and telemetry contracts for SPTorch Studio and runtime"
+license = "MIT"
+repository = "https://github.com/hjd92215202/sptorch"
+homepage = "https://github.com/hjd92215202/sptorch"
+documentation = "https://docs.rs/versioning"
+readme = "README.md"
+keywords = ["versioning", "telemetry", "tensor", "protocol", "sptorch"]
+categories = ["science", "algorithms"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
