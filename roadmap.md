@@ -818,6 +818,17 @@ crates/
 2. **真实数据集评估**：在 Spider/WikiSQL 上给出 Text2SQL 准确率与错误类型分布
 3. **TokenTrie 线上约束验证**：`generate_constrained` 接入线上生成路径，验证 SQL 幻觉下降幅度
 
+### Studio v1 实施进展（2026-05-04）
+
+- [x] Workspace 接入：新增 `crates/versioning` 与 `studio/src-tauri`
+- [x] 协议层落地：`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics` 与事件常量
+- [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`（模拟）
+- [x] 可视化首版落地：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
+- [x] 测试分层：前端 Vitest+RTL 最小基线 + Rust `engine_bridge` 集成测试目录化
+- [x] 事件流测试：`api.ts` 桥接测试 + `App.tsx` 事件驱动集成测试（含 Fence Error 恢复路径）
+- [x] CI 接入：新增 `frontend-test` job，执行 `studio` 前端 Vitest 测试
+- [ ] v1.1：`hal-ffi` ABI 扩展（真实 fence 信号、队列深度与硬件状态）
+
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览
 7. **ROCm/Metal 后端**：通过 hal-ffi 接入 AMD/Apple 硬件

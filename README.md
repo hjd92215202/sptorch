@@ -79,6 +79,19 @@ cargo run --release -p cli-text2sql
 - “已完成”与“进行中”状态不再由 README 单独维护
 - P8（Tang 9k 硬件点亮）为当前最高优先级
 
+## Studio 开发进度（同步）
+
+- 已新增 `crates/versioning`：版本化张量协议（`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics`）
+- 已新增 `studio/`（Tauri 2 + React）：
+  - 后端 `engine_bridge`：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`（模拟）
+  - 前端核心面板：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
+- 已新增最小测试基线：
+  - 前端：Vitest + RTL（Dashboard / Memory / Fence 组件）
+  - 前端：App 事件流集成测试（含 Fence Error 恢复分支）与 `api.ts` 桥接测试
+  - Rust：`engine_bridge` 集成测试分层到 `studio/src-tauri/tests`
+- CI 已接入前端测试：GitHub Actions 增加 `frontend-test` job（`npm ci` + `npm run test`）
+- 当前状态：v1 使用模拟 Fence/队列深度；真实 `hal-ffi` ABI 扩展列入 v1.1
+
 ## 硬件环境
 
 - OS: Windows 10

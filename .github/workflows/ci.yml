@@ -26,3 +26,20 @@ jobs:
         run: cargo build -p mock-npu
       - name: Test
         run: cargo test --workspace --exclude runtime-cuda --exclude cli-train-gpu --exclude distributed
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: studio/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Frontend tests (Vitest)
+        run: npm run test

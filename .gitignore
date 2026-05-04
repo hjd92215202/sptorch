@@ -26,3 +26,7 @@ target
 #.idea/
 minigpt_bpe_checkpoint.sptc
 minigpt_checkpoint.sptc
+
+# Studio frontend build artifacts
+studio/node_modules
+studio/dist
