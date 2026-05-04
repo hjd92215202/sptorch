@@ -101,10 +101,12 @@ impl Dropout {
         let mut rng = rand::thread_rng();
         let data = input.contiguous_data();
         let scale = 1.0 / (1.0 - self.rate);
-        let out: Vec<f32> = data.iter().map(|&x| {
-            if rng.gen::<f32>() < self.rate { 0.0 } else { x * scale }
+        // Build mask tensor and use mul() to keep autograd graph connected
+        let mask_data: Vec<f32> = data.iter().map(|_| {
+            if rng.gen::<f32>() < self.rate { 0.0 } else { scale }
         }).collect();
-        Tensor::new(out, input.shape())
+        let mask = Tensor::new(mask_data, input.shape());
+        mul(input, &mask)
     }
 
     pub fn eval(&mut self) { self.training = false; }
@@ -634,6 +636,8 @@ pub struct TransformerBlock {
     pub ln2: LayerNorm,
     pub ffn_up: Linear,
     pub ffn_down: Linear,
+    pub attn_dropout: Dropout,
+    pub ffn_dropout: Dropout,
 }
 
 impl TransformerBlock {
@@ -644,21 +648,27 @@ impl TransformerBlock {
             ln2: LayerNorm::new(d_model),
             ffn_up: Linear::new(d_model, d_ff, true),
             ffn_down: Linear::new(d_ff, d_model, true),
+            attn_dropout: Dropout::new(0.1),
+            ffn_dropout: Dropout::new(0.1),
         }
     }
 
     /// input: [seq_len, d_model] -> [seq_len, d_model]
     pub fn forward_seq(&self, input: &Tensor) -> Tensor {
-        // Pre-norm: LN -> MHA -> residual
         let normed = self.ln1.forward(input);
         let attn_out = self.attn.forward_causal(&normed);
+        let attn_out = self.attn_dropout.forward(&attn_out);
         let x = add(input, &attn_out);
 
-        // Pre-norm: LN -> FFN -> residual
         let normed2 = self.ln2.forward(&x);
         let ffn_out = gelu(&self.ffn_up.forward(&normed2));
-        let ffn_out = self.ffn_down.forward(&ffn_out);
+        let ffn_out = self.ffn_dropout.forward(&self.ffn_down.forward(&ffn_out));
         add(&x, &ffn_out)
+    }
+
+    pub fn set_training(&mut self, training: bool) {
+        if training { self.attn_dropout.train(); self.ffn_dropout.train(); }
+        else { self.attn_dropout.eval(); self.ffn_dropout.eval(); }
     }
 
     pub fn parameters(&self) -> Vec<Tensor> {

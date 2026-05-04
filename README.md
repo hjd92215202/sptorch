@@ -39,7 +39,7 @@ crates/
 ## 快速开始
 
 ```bash
-# 运行全量测试（188 个）
+# 运行全量测试（211 个，以 roadmap 口径为准）
 cargo test --workspace
 
 # CPU 训练 MiniGPT
@@ -69,11 +69,15 @@ cargo run --release -p cli-text2sql
 | distributed | 7 | AllReduce + gRPC + 多步训练 |
 | live-evolution | 16 | 双缓冲/EWC/监控/端到端 |
 | text2sql | 11 | Schema/RAG/SQL 约束/SQLite |
-| **合计** | **188** | **全部通过** |
+| **合计** | **211** | **全部通过** |
 
 ## 开发路线
 
-详见 [roadmap.md](roadmap.md)（P0-P8 全部交付，PX 持续工程改进）。
+详见 [roadmap.md](roadmap.md)（本仓库唯一事实源 / Single Source of Truth）。
+
+- 阶段口径以 roadmap 勾选状态与实验记录为准
+- “已完成”与“进行中”状态不再由 README 单独维护
+- P8（Tang 9k 硬件点亮）为当前最高优先级
 
 ## 硬件环境
 

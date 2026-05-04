@@ -195,6 +195,20 @@ crates/
 2. 实现 Rust 端串口 DMA 控制库
 3. 在 `hal-ffi` 中注册 `serial_backend`，对接 `BackendDispatch`
 
+**周验收里程碑（执行口径）**：
+1. **Week 1（协议与最小链路）**
+   - 交付：串口帧协议 v1（帧头/长度/校验/错误码）与最小 Rust 收发 demo
+   - 验收：主机↔Tang 9k 往返回环测试稳定通过，连续 10k 帧零崩溃
+2. **Week 2（算子指令映射）**
+   - 交付：`matmul` 指令编码与 32×32 tile 切片/回收逻辑
+   - 验收：CPU 参考结果对齐（容差阈值固定），错误可定位到 tile 级
+3. **Week 3（hal-ffi 接入）**
+   - 交付：`serial_backend` 注册到 `BACKEND_REGISTRY`，`dispatch_matmul` 可路由到硬件
+   - 验收：不改上层 API 即可切换 CPU/serial backend，核心回归测试通过
+4. **Week 4（端到端点亮）**
+   - 交付：`sptorch -> serial_backend -> Tang 9k -> result` 全链路打通
+   - 验收：完成 32×32 MatMul 端到端演示，输出与 CPU baseline 一致并沉淀复现实验记录
+
 ### P9：终极硬件 — 自研 DDR4 NPU 载板 ⏳ 筹备中
 
 **目标**：通过 PCB 设计，实现廉价、大容量显存的 AI 推理卡（对应硬件路线图 Phase 3）。
@@ -799,6 +813,11 @@ crates/
 4. **ROCm/Metal 后端**：通过 hal-ffi 接入 AMD/Apple 硬件
 5. **SPTorch Studio**：Tauri 桌面应用，可视化训练/推理/Schema 管理
 
+### 新增验收项（管理口径）
+1. **benchmark 基线补齐**：criterion 覆盖 matmul/forward/backward，形成可追踪性能基线
+2. **真实数据集评估**：在 Spider/WikiSQL 上给出 Text2SQL 准确率与错误类型分布
+3. **TokenTrie 线上约束验证**：`generate_constrained` 接入线上生成路径，验证 SQL 幻觉下降幅度
+
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览
 7. **ROCm/Metal 后端**：通过 hal-ffi 接入 AMD/Apple 硬件
@@ -809,6 +828,15 @@ crates/
 10. **SPTorch Studio 2.0**：Forge 工具 + DDR4 物理视图 + 工业版 Text2SQL
 
 **评估结论**：SPTorch 已从"深度学习框架"进化为"全栈 AI 生产力中枢"。软件是大脑（90% 完成），DDR4 PCB 是身体（筹备中），IDE 是神经系统（连接一切）。三者合一，护城河深不可测。
+
+---
+
+## 文档治理原则（单一事实源）
+
+- `roadmap.md` 是项目进度与阶段状态的唯一事实源（Single Source of Truth）
+- README 仅做入口与导航，不再单独维护阶段完成度口径
+- “已完成”状态以 roadmap 勾选项与对应实验记录为准
+- 迭代重点优先保证 P8 周里程碑验收，而不是扩张功能面
 
 ---
 
