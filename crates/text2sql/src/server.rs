@@ -1,9 +1,30 @@
-use axum::{extract::State, routing::post, Json, Router};
+use crate::schema::TableSchema;
 use axum::response::Html;
+use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use nn::GPT;
-use crate::training_data::SqlTokenizer;
+
+#[derive(Debug, Clone)]
+pub struct ProductCorrection {
+    pub question: String,
+    pub wrong_sql: String,
+    pub correct_sql: String,
+}
+
+pub trait ProductInferenceEngine: Send + Sync {
+    fn generate_sql(&self, _question: &str, _schemas: &[TableSchema], _max_tokens: usize) -> Option<String> {
+        None
+    }
+
+    fn apply_correction(&self, _correction: ProductCorrection) -> Result<String, String> {
+        Err("correction engine not enabled".to_string())
+    }
+}
+
+#[derive(Default)]
+pub struct TemplateOnlyEngine;
+
+impl ProductInferenceEngine for TemplateOnlyEngine {}
 
 #[derive(Deserialize)]
 pub struct QueryRequest {
@@ -21,23 +42,26 @@ pub struct QueryResponse {
 }
 
 pub struct AppState {
-    pub schema_info: Vec<crate::schema::TableSchema>,
-    pub model: Option<GPT>,
-    pub tokenizer: Option<SqlTokenizer>,
+    pub schema_info: Vec<TableSchema>,
+    pub engine: Option<Arc<dyn ProductInferenceEngine>>,
 }
 
 async fn query_handler(State(state): State<Arc<AppState>>, Json(req): Json<QueryRequest>) -> Json<QueryResponse> {
     use crate::sql_constraint::{validate_sql, SqlValidation};
 
-    let (sql, mode) = if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
-        let neural_sql = crate::neural::generate_sql(model, tok, &req.question, &state.schema_info, 60);
-        let v = validate_sql(&neural_sql);
-        if v.is_valid() {
-            (neural_sql, "neural".to_string())
+    let (sql, mode) = if let Some(engine) = &state.engine {
+        if let Some(engine_sql) = engine.generate_sql(&req.question, &state.schema_info, 60) {
+            let v = validate_sql(&engine_sql);
+            if v.is_valid() {
+                (engine_sql, "product-engine".to_string())
+            } else {
+                // Engine output invalid, fallback to template
+                let template_sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
+                (template_sql, "template (engine fallback)".to_string())
+            }
         } else {
-            // Neural output invalid, fallback to template
             let template_sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
-            (template_sql, "template (neural fallback)".to_string())
+            (template_sql, "template (engine unavailable)".to_string())
         }
     } else {
         let sql = crate::sql_constraint::generate_sql_stub(&req.question, &state.schema_info);
@@ -81,36 +105,34 @@ async fn correct_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CorrectionRequest>,
 ) -> Json<CorrectionResponse> {
-    use crate::feedback::{Correction, FeedbackLoop};
-
-    if let (Some(model), Some(tok)) = (&state.model, &state.tokenizer) {
-        let mut fl = FeedbackLoop::new(0.02, 10);
-        fl.add_correction(Correction {
+    if let Some(engine) = &state.engine {
+        let correction = ProductCorrection {
             question: req.question.clone(),
-            wrong_sql: req.wrong_sql,
+            wrong_sql: req.wrong_sql.clone(),
             correct_sql: req.correct_sql.clone(),
-        });
-        match fl.apply_latest(model, tok) {
-            Some(loss) => Json(CorrectionResponse {
+        };
+        match engine.apply_correction(correction) {
+            Ok(message) => Json(CorrectionResponse {
                 accepted: true,
-                message: format!("Learned from correction (loss={:.4})", loss),
+                message,
             }),
-            None => Json(CorrectionResponse {
+            Err(err) => Json(CorrectionResponse {
                 accepted: false,
-                message: "Failed to apply correction".into(),
+                message: format!("Failed to apply correction: {}", err),
             }),
         }
     } else {
         Json(CorrectionResponse {
             accepted: false,
-            message: "No neural model loaded, correction stored for future training".into(),
+            message: "No product engine loaded, correction stored for future training".into(),
         })
     }
 }
 
 async fn ui_handler(State(state): State<Arc<AppState>>) -> Html<String> {
     let tables_json = serde_json::to_string(&state.schema_info).unwrap_or_default();
-    Html(format!(r#"<!DOCTYPE html>
+    Html(format!(
+        r#"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -197,7 +219,8 @@ async function submitCorrection() {{
 }}
 </script>
 </body>
-</html>"#))
+</html>"#
+    ))
 }
 
 pub fn create_router(state: Arc<AppState>) -> Router {

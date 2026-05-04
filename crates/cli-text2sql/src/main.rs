@@ -1,6 +1,10 @@
 use std::sync::Arc;
+
+mod engine;
+
+use engine::train_text2sql_model;
 use text2sql::schema::{ColumnSchema, TableSchema};
-use text2sql::server::{start_server, AppState};
+use text2sql::server::{start_server, AppState, ProductInferenceEngine};
 
 #[tokio::main]
 async fn main() {
@@ -28,18 +32,25 @@ async fn run_train(args: &[String]) {
     let mut i = 2;
     while i < args.len() {
         match args[i].as_str() {
-            "--steps" => { steps = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(200); i += 2; }
-            "--lr" => { lr = args.get(i+1).and_then(|s| s.parse().ok()).unwrap_or(0.01); i += 2; }
-            _ => { i += 1; }
+            "--steps" => {
+                steps = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(200);
+                i += 2;
+            }
+            "--lr" => {
+                lr = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0.01);
+                i += 2;
+            }
+            _ => {
+                i += 1;
+            }
         }
     }
 
     eprintln!("[sptorch-text2sql] training neural model: {} steps, lr={}", steps, lr);
     let schemas = demo_schemas();
-    let (model, tok, final_loss) = text2sql::neural::train_text2sql_model(&schemas, steps, lr);
+    let (model, tok, final_loss) = train_text2sql_model(&schemas, steps, lr);
     eprintln!("[sptorch-text2sql] training complete, final loss: {:.4}", final_loss);
 
-    // Save checkpoint
     let params = model.parameters();
     if let Err(e) = serialize::save_checkpoint("text2sql_model.sptc", &params) {
         eprintln!("failed to save checkpoint: {}", e);
@@ -47,7 +58,6 @@ async fn run_train(args: &[String]) {
         eprintln!("[sptorch-text2sql] model saved to text2sql_model.sptc");
     }
 
-    // Test generation
     let test_questions = [
         "How many employees are there?",
         "What is the average salary?",
@@ -55,9 +65,14 @@ async fn run_train(args: &[String]) {
     ];
     eprintln!("\n[sptorch-text2sql] test generation:");
     for q in &test_questions {
-        let sql = text2sql::neural::generate_sql(&model, &tok, q, &schemas, 50);
+        let sql = engine::generate_sql(&model, &tok, q, &schemas, 50);
         let valid = text2sql::sql_constraint::validate_sql(&sql);
-        eprintln!("  Q: {} => {} [{}]", q, sql, if valid.is_valid() { "valid" } else { "INVALID" });
+        eprintln!(
+            "  Q: {} => {} [{}]",
+            q,
+            sql,
+            if valid.is_valid() { "valid" } else { "INVALID" }
+        );
     }
 }
 
@@ -84,10 +99,10 @@ async fn run_serve(args: &[String]) {
         eprintln!("  {} ({} columns)", s.table_name, s.columns.len());
     }
 
+    let engine = maybe_load_engine();
     let state = Arc::new(AppState {
         schema_info: schemas,
-        model: None,
-        tokenizer: None,
+        engine,
     });
     let addr = "0.0.0.0:8080";
     eprintln!("[sptorch-text2sql] server on http://localhost:8080");
@@ -98,6 +113,15 @@ async fn run_serve(args: &[String]) {
         eprintln!("server error: {}", e);
         std::process::exit(1);
     }
+}
+
+fn maybe_load_engine() -> Option<Arc<dyn ProductInferenceEngine>> {
+    if std::env::var("SPTORCH_TEXT2SQL_ENGINE").ok().as_deref() == Some("neural") {
+        let schemas = demo_schemas();
+        let (model, tok, _) = train_text2sql_model(&schemas, 120, 0.01);
+        return Some(engine::NeuralText2SqlEngine::shared(model, tok));
+    }
+    None
 }
 
 fn run_query(args: &[String]) {
@@ -121,28 +145,76 @@ fn demo_schemas() -> Vec<TableSchema> {
         TableSchema {
             table_name: "employees".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "department".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "salary".into(), dtype: "REAL".into(), is_primary: false },
-                ColumnSchema { name: "hire_date".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "name".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "department".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "salary".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "hire_date".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
             ],
         },
         TableSchema {
             table_name: "departments".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "name".into(), dtype: "TEXT".into(), is_primary: false },
-                ColumnSchema { name: "budget".into(), dtype: "REAL".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "name".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "budget".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
             ],
         },
         TableSchema {
             table_name: "sales".into(),
             columns: vec![
-                ColumnSchema { name: "id".into(), dtype: "INTEGER".into(), is_primary: true },
-                ColumnSchema { name: "employee_id".into(), dtype: "INTEGER".into(), is_primary: false },
-                ColumnSchema { name: "amount".into(), dtype: "REAL".into(), is_primary: false },
-                ColumnSchema { name: "date".into(), dtype: "TEXT".into(), is_primary: false },
+                ColumnSchema {
+                    name: "id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: true,
+                },
+                ColumnSchema {
+                    name: "employee_id".into(),
+                    dtype: "INTEGER".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "amount".into(),
+                    dtype: "REAL".into(),
+                    is_primary: false,
+                },
+                ColumnSchema {
+                    name: "date".into(),
+                    dtype: "TEXT".into(),
+                    is_primary: false,
+                },
             ],
         },
     ]

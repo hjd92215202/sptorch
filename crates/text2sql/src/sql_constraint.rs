@@ -170,7 +170,10 @@ pub fn validate_sql(sql: &str) -> SqlValidation {
     // Must start with a known statement keyword
     let valid_starts = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER"];
     if !valid_starts.iter().any(|k| upper.starts_with(k)) {
-        return SqlValidation::Invalid(format!("SQL must start with a statement keyword, got: {}", &trimmed[..trimmed.len().min(20)]));
+        return SqlValidation::Invalid(format!(
+            "SQL must start with a statement keyword, got: {}",
+            &trimmed[..trimmed.len().min(20)]
+        ));
     }
 
     // SELECT must have FROM (unless it's SELECT 1 or SELECT expression)
@@ -312,7 +315,10 @@ mod tests {
     fn test_validate_valid_sql() {
         assert_eq!(validate_sql("SELECT * FROM users;"), SqlValidation::Valid);
         assert_eq!(validate_sql("SELECT COUNT(*) FROM orders;"), SqlValidation::Valid);
-        assert_eq!(validate_sql("INSERT INTO users VALUES (1, 'test');"), SqlValidation::Valid);
+        assert_eq!(
+            validate_sql("INSERT INTO users VALUES (1, 'test');"),
+            SqlValidation::Valid
+        );
     }
 
     #[test]
@@ -329,7 +335,10 @@ mod tests {
     #[test]
     fn test_validate_unbalanced_parens() {
         let r = validate_sql("SELECT COUNT(* FROM orders;");
-        assert_eq!(r, SqlValidation::Invalid("unbalanced parentheses: 1 open, 0 close".into()));
+        assert_eq!(
+            r,
+            SqlValidation::Invalid("unbalanced parentheses: 1 open, 0 close".into())
+        );
     }
 
     #[test]

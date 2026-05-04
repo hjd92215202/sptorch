@@ -36,10 +36,10 @@ crates/
   runtime-cuda/      CUDA 后端：nvrtc kernel + cuBLAS matmul
   distributed/       分布式引擎：gRPC coordinator/worker + AllReduce + Barrier
   live-evolution/    实时进化：双缓冲参数 + 增量训练 + EWC + 在线监控
-  text2sql/          Text2SQL 样板产品：Axum API + SQLx + RAG + SQL 约束生成
+  text2sql/          Text2SQL 产品服务层：Axum API + SQLx + RAG + SQL 约束生成（框架无关）
   cli-train/         CPU MiniGPT 训练入口
   cli-train-gpu/     GPU 训练入口（Attention 模型）
-  cli-text2sql/      Text2SQL 服务入口
+  cli-text2sql/      Text2SQL 产品运行时（训练/推理引擎适配 + 服务入口）
 ```
 
 ## 快速开始
@@ -101,6 +101,7 @@ cargo run --release -p cli-text2sql
   - Rust：`engine_bridge` 集成测试分层到 `studio/src-tauri/tests`
 - CI 已接入前端测试：GitHub Actions 增加 `frontend-test` job（`npm ci` + `npm run test`）
 - 当前状态：v1 指标流来自真实 `live-evolution` 训练过程；Fence/队列深度仍为可观测模拟信号，真实 `hal-ffi` ABI 扩展列入 v1.1
+- 产品解耦进展：`text2sql` 已收敛为产品服务协议层；神经训练/推理实现迁移到 `cli-text2sql` 产品运行时，框架保持干净
 
 ## 硬件环境
 
