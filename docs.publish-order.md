@@ -1,4 +1,4 @@
-﻿# SPTorch crates.io 发布顺序（v1）
+# SPTorch crates.io 发布顺序（v1）
 
 目标：发布 `sptorch` 门面 crate，使产品仓可通过 `sptorch = "0.1.x"` 依赖框架。
 
@@ -40,3 +40,17 @@ cargo publish -p <crate>
 
 - `cargo package -p sptorch` 失败原因：依赖 crate（如 `core-autograd`）尚未在 registry 可解析。
 - 结论：需要先完成 B 序列中前置 crate 的发布。
+
+## E. 发布演练结果（2026-05-05）
+
+按 B 序列执行 `cargo package -p <crate> --allow-dirty --no-verify`：
+
+- ✅ 通过：`core-tensor`、`data`、`versioning`
+- ❌ 未通过（预期）：其余 crate 因前置依赖尚未在 registry 可解析（例如 `core-tensor` / `core-ops` / `core-autograd` 未发布）。
+
+这说明发布链路设计正确，后续需按顺序真实发布并等待索引同步后继续。
+
+## F. 演练脚本
+
+- Bash: `scripts/publish-rehearsal.sh`
+- PowerShell: `scripts/publish-rehearsal.ps1`
