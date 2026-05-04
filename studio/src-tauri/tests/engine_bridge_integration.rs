@@ -1,7 +1,8 @@
-﻿use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock};
 
+use live_evolution::events::{publish, subscribe, LiveEvolutionEvent};
 use sptorch_studio::engine_bridge::{bootstrap_default_storage, EngineBridge};
-use versioning::{EvolutionMetrics, FencePhase};
+use versioning::{EvolutionMetrics, FencePhase, VersionNode};
 
 fn make_bridge() -> EngineBridge {
     EngineBridge::new(Arc::new(RwLock::new(bootstrap_default_storage())))
@@ -29,7 +30,9 @@ fn test_snapshot_status_concurrent_reads() {
 fn test_commit_version_increments_and_links_parent() {
     let bridge = make_bridge();
     let before = bridge.snapshot_status().expect("status before");
-    let head = bridge.commit_version("integration_test_commit").expect("commit version");
+    let head = bridge
+        .commit_version("integration_test_commit")
+        .expect("commit version");
     let after = bridge.snapshot_status().expect("status after");
 
     assert_eq!(after.global_version, before.global_version + 1);
@@ -65,12 +68,11 @@ fn test_fence_state_machine_monotonic_progress() {
 }
 
 #[tokio::test]
-async fn test_metrics_stream_sequence_100_messages() {
-    let bridge = make_bridge();
-    let mut rx = bridge.metrics_tx.subscribe();
+async fn test_live_evolution_event_bus_sequence_100_messages() {
+    let mut rx = subscribe();
 
     for i in 0..100u32 {
-        bridge.push_metric(EvolutionMetrics {
+        publish(LiveEvolutionEvent::Metrics(EvolutionMetrics {
             ts_ms: i as u64,
             loss: 1.0 / ((i + 1) as f32),
             grad_norm: 0.1 * i as f32,
@@ -79,15 +81,40 @@ async fn test_metrics_stream_sequence_100_messages() {
             accum_target: 4,
             version_id: 1,
             fence: None,
-        });
+        }));
     }
 
     let mut count = 0usize;
     while count < 100 {
-        let _ = rx.recv().await.expect("recv metrics");
-        count += 1;
+        let evt = rx.recv().await.expect("recv events");
+        if matches!(evt, LiveEvolutionEvent::Metrics(_)) {
+            count += 1;
+        }
     }
     assert_eq!(count, 100);
+}
+
+#[test]
+fn test_apply_commit_node_updates_storage() {
+    let bridge = make_bridge();
+    let commit = VersionNode {
+        version_id: 9,
+        parent_version: Some(8),
+        committed_at_ms: 1234,
+        reason: "live_event_commit".to_string(),
+    };
+    bridge.apply_commit_node(&commit).expect("apply commit node");
+    let s = bridge.snapshot_status().expect("snapshot status");
+    assert_eq!(s.global_version, 9);
+    assert_eq!(s.active_version, 9);
+    assert_eq!(s.chain_head.expect("chain head").version_id, 9);
+}
+
+#[test]
+fn test_stream_start_idempotent() {
+    let bridge = make_bridge();
+    assert!(bridge.mark_stream_started_for_test());
+    assert!(!bridge.mark_stream_started_for_test());
 }
 
 #[test]

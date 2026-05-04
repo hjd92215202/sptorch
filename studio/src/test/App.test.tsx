@@ -176,6 +176,22 @@ describe("App event flow", () => {
     });
   });
 
+  it("deduplicates commit timeline by version_id", async () => {
+    render(<App />);
+    await screen.findByText("global v1");
+
+    act(() => {
+      commitHandler?.({ version_id: 4, parent_version: 1, committed_at_ms: 13, reason: "commit_2" });
+      commitHandler?.({ version_id: 4, parent_version: 1, committed_at_ms: 14, reason: "commit_2_retry" });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("global v4")).toBeInTheDocument();
+      expect(screen.getByText("active v4")).toBeInTheDocument();
+      expect(screen.getByTestId("versioned-dashboard")).toHaveTextContent("commits-count:2");
+    });
+  });
+
   it("recovers UI swapping state on fence Error signal", async () => {
     render(<App />);
     await screen.findByText("global v1");

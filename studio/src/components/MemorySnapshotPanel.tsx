@@ -13,6 +13,16 @@ function strideBars(strides: number[]) {
 
 export default function MemorySnapshotPanel({ tensors }: Props) {
   const [selected, setSelected] = useState<string | null>(tensors[0]?.tensor_id ?? null);
+  React.useEffect(() => {
+    if (!selected && tensors.length > 0) {
+      setSelected(tensors[0].tensor_id);
+      return;
+    }
+    if (selected && !tensors.some((t) => t.tensor_id === selected)) {
+      setSelected(tensors[0]?.tensor_id ?? null);
+    }
+  }, [selected, tensors]);
+
   const selectedTensor = useMemo(() => tensors.find((t) => t.tensor_id === selected), [selected, tensors]);
 
   return (

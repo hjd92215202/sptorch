@@ -830,7 +830,9 @@ crates/
 - [x] 协议层落地：`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics` 与事件常量
 - [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
 - [x] 指标流改造：Studio 事件流由 `live-evolution` 真实训练过程直推（`Metrics/VersionCommit/Fence/HardwareState`）
+- [x] 事件流稳态增强：`start_evolution_stream` 幂等启动，避免重复订阅导致的重复事件
 - [x] 可视化首版落地：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
+- [x] 可用性增强：版本时间线按 `version_id` 去重；Memory 面板默认选中首个张量；Autograd 图补充空态提示
 - [x] 测试分层：前端 Vitest+RTL 最小基线 + Rust `engine_bridge` 集成测试目录化
 - [x] 事件流测试：`api.ts` 桥接测试 + `App.tsx` 事件驱动集成测试（含 Fence Error 恢复路径）
 - [x] CI 接入：新增 `frontend-test` job，执行 `studio` 前端 Vitest 测试

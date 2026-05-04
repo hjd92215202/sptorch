@@ -1,19 +1,22 @@
-﻿use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use live_evolution::events::{subscribe as subscribe_live_events, LiveEvolutionEvent};
+use live_evolution::runtime::ensure_runtime_started;
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
 use tauri::Emitter;
 use versioning::{
-    BufferPointers, EvolutionMetrics, FencePhase, FenceState, HardwareState, LayerPolicy, TensorLayoutSnapshot,
-    UpdatePolicy, VersionNode, VersionedStorage, EVENT_FENCE, EVENT_HARDWARE_STATE, EVENT_METRICS,
-    EVENT_VERSION_COMMIT,
+    BufferPointers, FencePhase, FenceState, HardwareState, LayerPolicy, TensorLayoutSnapshot, UpdatePolicy,
+    VersionNode, VersionedStorage, EVENT_FENCE, EVENT_HARDWARE_STATE, EVENT_METRICS, EVENT_VERSION_COMMIT,
 };
 
 #[derive(Clone)]
 pub struct EngineBridge {
     pub storage: Arc<RwLock<VersionedStorage>>,
-    pub metrics_tx: broadcast::Sender<EvolutionMetrics>,
+    stream_started: AtomicBool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,8 +30,10 @@ pub struct EngineStatusDto {
 
 impl EngineBridge {
     pub fn new(storage: Arc<RwLock<VersionedStorage>>) -> Self {
-        let (metrics_tx, _rx) = broadcast::channel(256);
-        Self { storage, metrics_tx }
+        Self {
+            storage,
+            stream_started: AtomicBool::new(false),
+        }
     }
 
     pub fn snapshot_status(&self) -> Result<EngineStatusDto, String> {
@@ -47,15 +52,19 @@ impl EngineBridge {
         })
     }
 
-    pub fn push_metric(&self, metric: EvolutionMetrics) {
-        let _ = self.metrics_tx.send(metric);
+    pub fn apply_commit_node(&self, node: &VersionNode) -> Result<(), String> {
+        let mut guard = self.storage.write().map_err(|_| "storage lock poisoned".to_string())?;
+        let exists = guard.chain.iter().any(|n| n.version_id == node.version_id);
+        if !exists {
+            guard.chain.push(node.clone());
+        }
+        guard.global_version = guard.global_version.max(node.version_id);
+        guard.active_version = node.version_id;
+        Ok(())
     }
 
     pub fn commit_version(&self, reason: impl Into<String>) -> Result<VersionNode, String> {
-        let mut guard = self
-            .storage
-            .write()
-            .map_err(|_| "storage lock poisoned".to_string())?;
+        let mut guard = self.storage.write().map_err(|_| "storage lock poisoned".to_string())?;
         let parent = Some(guard.active_version);
         guard.global_version += 1;
         guard.active_version = guard.global_version;
@@ -91,6 +100,17 @@ impl EngineBridge {
         let _ = self.commit_version("atomic_swap_simulated")?;
         Ok(out)
     }
+
+    fn mark_stream_started(&self) -> bool {
+        self.stream_started
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    #[cfg(test)]
+    pub fn mark_stream_started_for_test(&self) -> bool {
+        self.mark_stream_started()
+    }
 }
 
 pub struct AppState {
@@ -104,12 +124,34 @@ pub async fn get_engine_status(state: tauri::State<'_, AppState>) -> Result<Engi
 
 #[tauri::command]
 pub async fn start_evolution_stream(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let mut rx = state.bridge.metrics_tx.subscribe();
+    if !state.bridge.mark_stream_started() {
+        return Ok(());
+    }
+
+    let mut rx = subscribe_live_events();
+    let bridge = state.bridge.clone();
+    let _ = ensure_runtime_started();
+
     tauri::async_runtime::spawn(async move {
-        while let Ok(m) = rx.recv().await {
-            let _ = app.emit(EVENT_METRICS, m);
+        while let Ok(evt) = rx.recv().await {
+            match evt {
+                LiveEvolutionEvent::Metrics(m) => {
+                    let _ = app.emit(EVENT_METRICS, m);
+                }
+                LiveEvolutionEvent::VersionCommit(v) => {
+                    let _ = bridge.apply_commit_node(&v);
+                    let _ = app.emit(EVENT_VERSION_COMMIT, v);
+                }
+                LiveEvolutionEvent::Fence(f) => {
+                    let _ = app.emit(EVENT_FENCE, f);
+                }
+                LiveEvolutionEvent::HardwareState(h) => {
+                    let _ = app.emit(EVENT_HARDWARE_STATE, h);
+                }
+            }
         }
     });
+
     Ok(())
 }
 
@@ -136,6 +178,29 @@ pub async fn trigger_atomic_swap(app: tauri::AppHandle, state: tauri::State<'_, 
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_commit_node_idempotent() {
+        let bridge = EngineBridge::new(Arc::new(RwLock::new(bootstrap_default_storage())));
+        let node = VersionNode {
+            version_id: 7,
+            parent_version: Some(6),
+            committed_at_ms: 100,
+            reason: "idempotent".to_string(),
+        };
+        bridge.apply_commit_node(&node).expect("apply once");
+        bridge.apply_commit_node(&node).expect("apply twice");
+        let guard = bridge.storage.read().expect("storage read");
+        let count = guard.chain.iter().filter(|v| v.version_id == 7).count();
+        assert_eq!(count, 1);
+        assert_eq!(guard.global_version, 7);
+        assert_eq!(guard.active_version, 7);
+    }
 }
 
 pub fn bootstrap_default_storage() -> VersionedStorage {

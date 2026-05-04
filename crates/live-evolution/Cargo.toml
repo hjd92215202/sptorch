@@ -8,3 +8,5 @@ core-tensor = { path = "../core-tensor" }
 core-ops = { path = "../core-ops" }
 nn = { path = "../nn" }
 optim = { path = "../optim" }
+versioning = { path = "../versioning" }
+tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }

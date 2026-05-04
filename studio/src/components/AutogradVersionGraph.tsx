@@ -10,6 +10,7 @@ interface Props {
 
 export default function AutogradVersionGraph({ commits }: Props) {
   const [selected, setSelected] = useState<VersionNode | null>(null);
+  const hasCommits = commits.length > 0;
 
   const nodes = useMemo<Node[]>(() => {
     const data = commits.length > 0 ? commits.slice(-6) : [{ version_id: 1, reason: "bootstrap", committed_at_ms: 0 } as VersionNode];
@@ -44,7 +45,7 @@ export default function AutogradVersionGraph({ commits }: Props) {
         <h2 className="text-sm font-semibold text-slate-100">Autograd Version Graph</h2>
       </div>
 
-      <div className="h-64 rounded-xl border border-slate-700/40 bg-slate-950/50">
+      <div className="relative h-64 rounded-xl border border-slate-700/40 bg-slate-950/50">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -57,6 +58,11 @@ export default function AutogradVersionGraph({ commits }: Props) {
           <MiniMap />
           <Controls />
         </ReactFlow>
+        {!hasCommits && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-500">
+            Waiting for version commits...
+          </div>
+        )}
       </div>
 
       {selected && (

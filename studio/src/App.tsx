@@ -41,7 +41,10 @@ export default function App() {
       });
 
       unlistenCommit = await onVersionCommit((v) => {
-        setCommits((prev) => [...prev.slice(-31), v]);
+        setCommits((prev) => {
+          const next = prev.filter((x) => x.version_id !== v.version_id);
+          return [...next.slice(-31), v];
+        });
         setStatus((prev) =>
           prev
             ? {

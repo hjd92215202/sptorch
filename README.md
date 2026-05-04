@@ -91,7 +91,9 @@ cargo run --release -p cli-text2sql
 - 已新增 `studio/`（Tauri 2 + React）：
   - 后端 `engine_bridge`：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
   - 指标流已改为直接订阅 `live-evolution` 训练事件总线（`Metrics/VersionCommit/Fence/HardwareState`），不再使用本地定时模拟推送
+  - 事件流稳态增强：`start_evolution_stream` 幂等启动，避免重复订阅导致的 commit/fence 重复推送
   - 前端核心面板：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
+  - 控制中枢可用性增强：Version Timeline 按 `version_id` 去重、Memory 面板自动选中首个张量、Autograd 图增加空态提示
 - 已新增最小测试基线：
   - 前端：Vitest + RTL（Dashboard / Memory / Fence 组件）
   - 前端：App 事件流集成测试（含 Fence Error 恢复分支）与 `api.ts` 桥接测试
