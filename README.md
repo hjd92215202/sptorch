@@ -69,6 +69,13 @@ cargo test --manifest-path products/Cargo.toml --workspace
 
 发布与版本策略见 [docs.release-strategy.md](docs.release-strategy.md)。
 
+## 发布前清单（当前状态）
+
+- [x] `sptorch` 已补齐发布元数据（repository/homepage/documentation/readme/keywords/categories）。
+- [x] 非发布目标已标注 `publish = false`：`cli-train`、`cli-train-gpu`、`mock-npu`、`sptorch-studio`、`products/*`。
+- [x] `cargo package -p core-tensor --no-verify` 可通过（作为链路基线）。
+- [ ] `cargo package -p sptorch --no-verify` 仍阻塞：依赖的内部 crate（如 `core-autograd`）尚未发布到 registry。
+
 ## 测试覆盖
 
 | crate | 测试数 | 说明 |

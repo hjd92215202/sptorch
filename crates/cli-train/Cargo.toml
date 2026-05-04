@@ -2,6 +2,7 @@
 name = "cli-train"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [[bin]]
 name = "sptorch-train"
@@ -18,3 +19,4 @@ optim = { path = "../optim" }
 data = { path = "../data" }
 serialize = { path = "../serialize" }
 rand = "0.8"
+

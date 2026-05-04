@@ -847,6 +847,8 @@ studio/
 - [x] 产品解耦（框架/产品边界）：`text2sql` 收敛为框架无关服务层，训练/推理引擎迁移至 `cli-text2sql` 产品运行时
 - [x] Cargo 工程解耦：框架根 workspace 与 `products/` 独立 workspace 分离，产品通过 `sptorch` 门面 crate 引入框架能力
 - [x] 稳定 API 收敛：产品侧依赖统一切换到 `sptorch::v1` 命名空间，减少对内部 crate 直连
+- [x] 发布前清单执行：`sptorch` 元数据补齐 + 非发布目标 `publish=false` + `core-tensor` 打包链路验证通过
+- [ ] 发布阻塞项：`sptorch` 打包仍需先发布/可解析其内部依赖 crate（如 `core-autograd` 等）
 
 ### 中期推进（3-5 个月）
 6. **SPTorch Studio 1.0**：Tauri 桌面应用，Schema 导入 + 计算图预览

@@ -1,20 +1,26 @@
-﻿[package]
+[package]
 name = "sptorch"
 version = "0.1.0"
 edition = "2021"
 description = "SPTorch framework facade crate"
 license = "MIT"
+repository = "https://github.com/hjd92215202/sptorch"
+homepage = "https://github.com/hjd92215202/sptorch"
+documentation = "https://docs.rs/sptorch"
+readme = "README.md"
+keywords = ["deep-learning", "tensor", "autograd", "distributed-training", "rust"]
+categories = ["science", "algorithms", "hardware-support"]
 
 [dependencies]
-core-tensor = { path = "../core-tensor" }
-core-autograd = { path = "../core-autograd" }
-core-ops = { path = "../core-ops" }
-nn = { path = "../nn" }
-optim = { path = "../optim" }
-data = { path = "../data" }
-serialize = { path = "../serialize" }
-hal = { path = "../hal" }
-hal-ffi = { path = "../hal-ffi" }
-distributed = { path = "../distributed" }
-live-evolution = { path = "../live-evolution" }
-versioning = { path = "../versioning" }
+core-tensor = { version = "0.1.0", path = "../core-tensor" }
+core-autograd = { version = "0.1.0", path = "../core-autograd" }
+core-ops = { version = "0.1.0", path = "../core-ops" }
+nn = { version = "0.1.0", path = "../nn" }
+optim = { version = "0.1.0", path = "../optim" }
+data = { version = "0.1.0", path = "../data" }
+serialize = { version = "0.1.0", path = "../serialize" }
+hal = { version = "0.1.0", path = "../hal" }
+hal-ffi = { version = "0.1.0", path = "../hal-ffi" }
+distributed = { version = "0.1.0", path = "../distributed" }
+live-evolution = { version = "0.1.0", path = "../live-evolution" }
+versioning = { version = "0.1.0", path = "../versioning" }
