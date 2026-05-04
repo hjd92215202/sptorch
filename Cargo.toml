@@ -11,7 +11,13 @@ members = [
     "crates/serialize",
     "crates/runtime-cuda",
     "crates/cli-train",
-    "crates/cli-train-gpu", "crates/hal-ffi", "crates/mock-npu", "crates/distributed", "crates/live-evolution", "crates/text2sql", "crates/cli-text2sql",
+    "crates/cli-train-gpu",
+    "crates/hal-ffi",
+    "crates/mock-npu",
+    "crates/distributed",
+    "crates/live-evolution",
+    "products/text2sql",
+    "products/cli-text2sql",
     "studio/src-tauri",
 ]
 resolver = "2"

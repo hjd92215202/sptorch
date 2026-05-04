@@ -19,7 +19,7 @@
 
 - **Text2SQL 一体机**：生态中的首个生产级样板产品，Rust 单二进制交付（3.9MB），验证平台从训练→推理→交付的完整闭环能力
 
-## Workspace 结构（17 crates）
+## Workspace 结构（平台 crates + 产品 packages）
 
 ```text
 crates/
@@ -36,10 +36,14 @@ crates/
   runtime-cuda/      CUDA 后端：nvrtc kernel + cuBLAS matmul
   distributed/       分布式引擎：gRPC coordinator/worker + AllReduce + Barrier
   live-evolution/    实时进化：双缓冲参数 + 增量训练 + EWC + 在线监控
-  text2sql/          Text2SQL 产品服务层：Axum API + SQLx + RAG + SQL 约束生成（框架无关）
   cli-train/         CPU MiniGPT 训练入口
   cli-train-gpu/     GPU 训练入口（Attention 模型）
+  versioning/        版本化张量协议（VersionedStorage/UpdatePolicy/FenceState/Metrics）
+products/
+  text2sql/          Text2SQL 产品服务层：Axum API + SQLx + RAG + SQL 约束生成（框架无关）
   cli-text2sql/      Text2SQL 产品运行时（训练/推理引擎适配 + 服务入口）
+studio/
+  src-tauri/         SPTorch Studio 控制中枢（Tauri 2 后端）
 ```
 
 ## 快速开始
