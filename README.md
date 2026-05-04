@@ -7,6 +7,7 @@
 - **平台层（母体）**：`SPTorch` 是全栈 AI 平台/框架体系（引擎 + 协议 + 硬件抽象 + IDE 生态）。
 - **控制中枢层**：`SPTorch Studio` 是平台控制中枢，负责观测、编排、调试与交付。
 - **产品层**：工业版 `Text2SQL` 是平台生态中的首个生产级训练产品（样板产品），用于验证平台能力闭环。
+- **边界原则**：产品仅通过 `sptorch::v1` 稳定门面 API 依赖框架，不直接依赖内部子 crate。
 
 **四大核心愿景：**
 
@@ -65,6 +66,8 @@ cargo run --release --manifest-path products/Cargo.toml -p cli-text2sql
 # 产品 workspace 测试
 cargo test --manifest-path products/Cargo.toml --workspace
 ```
+
+发布与版本策略见 [docs.release-strategy.md](docs.release-strategy.md)。
 
 ## 测试覆盖
 

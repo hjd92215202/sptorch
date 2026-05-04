@@ -3,6 +3,7 @@ use std::sync::Arc;
 mod engine;
 
 use engine::train_text2sql_model;
+use sptorch::v1::checkpoint::save_checkpoint;
 use text2sql::schema::{ColumnSchema, TableSchema};
 use text2sql::server::{start_server, AppState, ProductInferenceEngine};
 
@@ -52,7 +53,7 @@ async fn run_train(args: &[String]) {
     eprintln!("[sptorch-text2sql] training complete, final loss: {:.4}", final_loss);
 
     let params = model.parameters();
-    if let Err(e) = sptorch::serialize::save_checkpoint("text2sql_model.sptc", &params) {
+    if let Err(e) = save_checkpoint("text2sql_model.sptc", &params) {
         eprintln!("failed to save checkpoint: {}", e);
     } else {
         eprintln!("[sptorch-text2sql] model saved to text2sql_model.sptc");
