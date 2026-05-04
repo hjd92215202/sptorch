@@ -124,3 +124,13 @@ fn test_ffi_exp_log_roundtrip() {
         assert!((log_out[i] - a[i]).abs() < 1e-5, "exp->log roundtrip failed at {}", i);
     }
 }
+
+#[test]
+fn test_ffi_query_runtime_optional_hook() {
+    let backend = load_mock();
+    let runtime = backend.query_runtime();
+    assert!(runtime.is_some());
+    let (queue_depth, online) = runtime.expect("runtime telemetry");
+    assert_eq!(queue_depth, 0);
+    assert!(online);
+}

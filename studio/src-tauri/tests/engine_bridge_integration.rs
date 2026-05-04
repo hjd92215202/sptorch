@@ -118,6 +118,14 @@ fn test_stream_start_idempotent() {
 }
 
 #[test]
+fn test_hardware_state_snapshot_fallback() {
+    let bridge = make_bridge();
+    let hw = bridge.hardware_state_snapshot();
+    assert_eq!(hw.backend, "live-evolution-sim");
+    assert!(hw.online);
+}
+
+#[test]
 fn test_accumulation_bounds() {
     for i in 0..128u32 {
         let curr = i % 8;

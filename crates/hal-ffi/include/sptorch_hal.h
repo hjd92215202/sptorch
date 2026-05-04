@@ -46,6 +46,18 @@ int sptorch_copy_d2h(const void* device, float* host, size_t n);
 /** Synchronize (wait for all pending ops). */
 int sptorch_sync(void);
 
+/**
+ * Optional telemetry hook for IDE/runtime monitoring.
+ *
+ * Implementations should write:
+ * - `queue_depth`: current hardware command queue depth
+ * - `online`: 1 if backend is healthy/online, 0 otherwise
+ *
+ * Return 0 on success.
+ * If unsupported, backends may omit this symbol entirely.
+ */
+int sptorch_query_runtime(uint32_t* queue_depth, uint32_t* online);
+
 /* ---- element-wise ops ---- */
 
 int sptorch_add_f32(const void* a, const void* b, void* out, size_t n);

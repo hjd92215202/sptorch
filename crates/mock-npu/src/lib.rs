@@ -58,6 +58,17 @@ pub extern "C" fn sptorch_sync() -> i32 {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn sptorch_query_runtime(queue_depth: *mut u32, online: *mut u32) -> i32 {
+    if !queue_depth.is_null() {
+        *queue_depth = 0;
+    }
+    if !online.is_null() {
+        *online = 1;
+    }
+    0
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sptorch_add_f32(a: *const c_void, b: *const c_void, out: *mut c_void, n: usize) -> i32 {
     let a = slice::from_raw_parts(a as *const f32, n);
     let b = slice::from_raw_parts(b as *const f32, n);

@@ -19,6 +19,7 @@ type FreeFn = unsafe extern "C" fn(handle: *mut std::ffi::c_void);
 type CopyH2DFn = unsafe extern "C" fn(host: *const f32, device: *mut std::ffi::c_void, n: usize) -> i32;
 type CopyD2HFn = unsafe extern "C" fn(device: *const std::ffi::c_void, host: *mut f32, n: usize) -> i32;
 type SyncFn = unsafe extern "C" fn() -> i32;
+type QueryRuntimeFn = unsafe extern "C" fn(queue_depth: *mut u32, online: *mut u32) -> i32;
 
 type BinaryOpFn = unsafe extern "C" fn(
     a: *const std::ffi::c_void,
@@ -109,6 +110,7 @@ struct FfiBackendInner {
     copy_h2d: CopyH2DFn,
     copy_d2h: CopyD2HFn,
     sync: SyncFn,
+    query_runtime: Option<QueryRuntimeFn>,
     add: BinaryOpFn,
     mul: BinaryOpFn,
     neg: UnaryOpFn,
@@ -168,6 +170,10 @@ impl FfiBackend {
                 copy_h2d: load_sym!(lib, b"sptorch_copy_h2d\0"),
                 copy_d2h: load_sym!(lib, b"sptorch_copy_d2h\0"),
                 sync: load_sym!(lib, b"sptorch_sync\0"),
+                query_runtime: match lib.get::<Symbol<QueryRuntimeFn>>(b"sptorch_query_runtime\0") {
+                    Ok(sym) => Some(**sym),
+                    Err(_) => None,
+                },
                 add: load_sym!(lib, b"sptorch_add_f32\0"),
                 mul: load_sym!(lib, b"sptorch_mul_f32\0"),
                 neg: load_sym!(lib, b"sptorch_neg_f32\0"),
@@ -239,6 +245,19 @@ impl FfiBackend {
             (self.inner.free)(o_ptr);
         }
         out
+    }
+
+    /// Query backend runtime telemetry if supported by the loaded shared library.
+    /// Returns `None` when the backend does not export `sptorch_query_runtime`.
+    pub fn query_runtime(&self) -> Option<(u32, bool)> {
+        let f = self.inner.query_runtime?;
+        let mut queue_depth = 0u32;
+        let mut online = 0u32;
+        let rc = unsafe { f(&mut queue_depth as *mut u32, &mut online as *mut u32) };
+        if rc != 0 {
+            return None;
+        }
+        Some((queue_depth, online != 0))
     }
 }
 

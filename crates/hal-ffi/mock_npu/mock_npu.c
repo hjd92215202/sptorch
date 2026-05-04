@@ -38,6 +38,12 @@ int sptorch_copy_d2h(const void* device, float* host, size_t n) {
 
 int sptorch_sync(void) { return 0; }
 
+int sptorch_query_runtime(uint32_t* queue_depth, uint32_t* online) {
+    if (queue_depth) *queue_depth = 0;
+    if (online) *online = 1;
+    return 0;
+}
+
 /* ---- element-wise ops ---- */
 
 int sptorch_add_f32(const void* a, const void* b, void* out, size_t n) {

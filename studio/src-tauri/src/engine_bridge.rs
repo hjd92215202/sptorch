@@ -4,6 +4,8 @@ use std::sync::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use hal::Backend;
+use hal_ffi::FfiBackend;
 use live_evolution::events::{subscribe as subscribe_live_events, LiveEvolutionEvent};
 use live_evolution::runtime::ensure_runtime_started;
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,7 @@ use versioning::{
 pub struct EngineBridge {
     pub storage: Arc<RwLock<VersionedStorage>>,
     stream_started: AtomicBool,
+    hardware_backend: Option<Arc<FfiBackend>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,9 +33,14 @@ pub struct EngineStatusDto {
 
 impl EngineBridge {
     pub fn new(storage: Arc<RwLock<VersionedStorage>>) -> Self {
+        let hardware_backend = std::env::var("SPTORCH_HAL_LIB")
+            .ok()
+            .and_then(|path| FfiBackend::load(path).ok())
+            .map(Arc::new);
         Self {
             storage,
             stream_started: AtomicBool::new(false),
+            hardware_backend,
         }
     }
 
@@ -107,6 +115,28 @@ impl EngineBridge {
             .is_ok()
     }
 
+    pub fn hardware_state_snapshot(&self) -> HardwareState {
+        if let Some(backend) = &self.hardware_backend {
+            if let Some((queue_depth, online)) = backend.query_runtime() {
+                return HardwareState {
+                    backend: backend.name().to_string(),
+                    queue_depth,
+                    online,
+                };
+            }
+            return HardwareState {
+                backend: backend.name().to_string(),
+                queue_depth: 0,
+                online: true,
+            };
+        }
+        HardwareState {
+            backend: "live-evolution-sim".to_string(),
+            queue_depth: 0,
+            online: true,
+        }
+    }
+
     #[cfg(test)]
     pub fn mark_stream_started_for_test(&self) -> bool {
         self.mark_stream_started()
@@ -127,6 +157,9 @@ pub async fn start_evolution_stream(app: tauri::AppHandle, state: tauri::State<'
     if !state.bridge.mark_stream_started() {
         return Ok(());
     }
+
+    let hw = state.bridge.hardware_state_snapshot();
+    let _ = app.emit(EVENT_HARDWARE_STATE, hw);
 
     let mut rx = subscribe_live_events();
     let bridge = state.bridge.clone();

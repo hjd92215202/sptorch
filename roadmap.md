@@ -831,6 +831,7 @@ crates/
 - [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
 - [x] 指标流改造：Studio 事件流由 `live-evolution` 真实训练过程直推（`Metrics/VersionCommit/Fence/HardwareState`）
 - [x] 事件流稳态增强：`start_evolution_stream` 幂等启动，避免重复订阅导致的重复事件
+- [x] v1.1 适配层预埋：`hal-ffi` 增加可选遥测 ABI `sptorch_query_runtime`，Studio 启流时优先读取硬件状态快照
 - [x] 可视化首版落地：Versioned Dashboard、Memory Snapshot、Autograd Version Graph、Hardware Fence Panel
 - [x] 可用性增强：版本时间线按 `version_id` 去重；Memory 面板默认选中首个张量；Autograd 图补充空态提示
 - [x] 测试分层：前端 Vitest+RTL 最小基线 + Rust `engine_bridge` 集成测试目录化
