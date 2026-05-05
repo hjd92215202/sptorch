@@ -9,6 +9,7 @@ name = "sptorch_distributed"
 [dependencies]
 sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
 sptorch-serialize = { version = "0.1.0", path = "../serialize" }
+sptorch-hal = { version = "0.1.0", path = "../hal" }
 tokio = { version = "1", features = ["full"] }
 tonic = "0.12"
 prost = "0.13"

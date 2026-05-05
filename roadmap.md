@@ -902,3 +902,10 @@ bdf6661 GPU Attention模型: 单头attention+手动backward, loss 3.13→2.38
 - 构建: cargo, release 模式用于训练
 
 - [x] Release naming standardization: crates.io package names use `sptorch-*`; Rust library crate identifiers use `sptorch_*`.
+
+### Framework Hardware Progress (2026-05-06)
+
+- [x] Tank9k multi-board topology model: `sptorch-hal::topology` now represents board nodes, serial/PCIe/Ethernet links, link roles, queue-depth hints, online state, and connectivity diagnostics.
+- [x] Multi-board planning primitives: HAL can derive deterministic ring order, estimate Ring-AllReduce transfer cost, and generate 32x32 MatMul shard plans for Tank9k-style validation.
+- [x] Hardware-aware distributed dry-run: `sptorch-distributed::hardware_parallel` turns a topology into a validation plan combining MatMul sharding and Ring-AllReduce, so multi-board bring-up can be tested before real serial/PCIe DMA is connected.
+

@@ -24,7 +24,7 @@ crates/
   core-tensor/      Tensor, Shape, DType, Storage, strides, basic backward support
   core-autograd/    Computation graph and backward scheduling
   core-ops/         Differentiable operators and backend dispatch
-  hal/              Hardware Abstraction Layer: Backend + KernelProvider
+  hal/              Hardware Abstraction Layer: Backend + KernelProvider + multi-board topology
   hal-ffi/          C FFI bridge for external hardware plugins
   mock-npu/         Mock NPU cdylib for FFI chain validation
   nn/               Module trait, Linear, LoRA, Embedding, LayerNorm, MHA, Transformer, GPT
@@ -32,7 +32,7 @@ crates/
   data/             Tokenizers, TextDataset, DataLoader
   serialize/        Checkpoint and safetensors support
   runtime-cuda/     CUDA backend kernels and cuBLAS matmul
-  distributed/      gRPC coordinator/worker, AllReduce, Barrier
+  distributed/      gRPC coordinator/worker, AllReduce, Barrier, hardware-aware parallel plans
   live-evolution/   Double-buffer parameters, EWC, online monitoring and rollback
   cli-train/        CPU MiniGPT training entry
   cli-train-gpu/    GPU training entry
@@ -45,6 +45,13 @@ External ecosystem repositories:
 ../text2sql/          Production Text2SQL product workspace
 ../sptorch-studio/    Tauri + React Studio IDE workspace
 ```
+
+
+## Hardware Roadmap Focus
+
+- Tank9k/Tang 9k bring-up is now treated as a framework capability, not a product feature.
+- `sptorch-hal::topology` models multi-board nodes, serial/PCIe/Ethernet links, connectivity validation, ring allreduce estimates, and matmul shard plans.
+- `sptorch-distributed::hardware_parallel` turns a hardware topology into dry-run validation plans for multi-board matmul + allreduce before real serial/PCIe DMA is wired in.
 
 ## Quick Start
 

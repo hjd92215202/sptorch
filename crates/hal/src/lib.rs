@@ -4,6 +4,8 @@
 //! Any hardware (CPU, GPU, NPU) implements these traits to be plugged in.
 //! Includes `CpuBackend` as the reference implementation.
 
+pub mod topology;
+
 use sptorch_core_tensor::DType;
 use std::fmt;
 
@@ -24,6 +26,13 @@ impl DeviceId {
     pub fn cuda(ordinal: usize) -> Self {
         DeviceId {
             backend: "cuda".into(),
+            ordinal,
+        }
+    }
+
+    pub fn tank9k(ordinal: usize) -> Self {
+        DeviceId {
+            backend: "tank9k".into(),
             ordinal,
         }
     }
