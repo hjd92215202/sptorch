@@ -104,13 +104,10 @@ crates/
   cli-train/         CPU MiniGPT 训练入口（Transformer，autograd 反向传播）
   cli-train-gpu/     GPU 训练入口（Attention 模型，手动反向传播）
   versioning/        版本化张量协议（VersionedStorage/UpdatePolicy/FenceState/Metrics）
-products/
-  text2sql/          Text2SQL产品服务层：axum API + sqlx Schema抓取 + RAG prompt + SQL约束生成（框架无关）
-  cli-text2sql/      Text2SQL产品运行时：训练/推理引擎适配 + 服务入口
-studio/
-  src-tauri/         SPTorch Studio 控制中枢（Tauri 2 后端）
-```
-
+External ecosystem repositories (not part of framework workspace):
+../text2sql/          Text2SQL product repo: service layer + CLI runtime
+../text2sql/cli-text2sql/  Text2SQL runtime: training/inference adapter + service entry
+../sptorch-studio/    SPTorch Studio IDE repo: Tauri 2 backend + React frontend
 ### 测试覆盖
 
 | crate | 测试数 | 说明 |
@@ -832,7 +829,7 @@ studio/
 
 ### Studio v1 实施进展（2026-05-04）
 
-- [x] Workspace 接入：新增 `crates/versioning` 与 `studio/src-tauri`
+- [x] Protocol integration: added `crates/versioning`; Studio moved to independent repo `../sptorch-studio`
 - [x] 协议层落地：`VersionedStorage` / `UpdatePolicy` / `FenceState` / `EvolutionMetrics` 与事件常量
 - [x] Tauri bridge 落地：`get_engine_status`、`start_evolution_stream`、`trigger_atomic_swap`
 - [x] 指标流改造：Studio 事件流由 `live-evolution` 真实训练过程直推（`Metrics/VersionCommit/Fence/HardwareState`）
@@ -842,10 +839,10 @@ studio/
 - [x] 可用性增强：版本时间线按 `version_id` 去重；Memory 面板默认选中首个张量；Autograd 图补充空态提示
 - [x] 测试分层：前端 Vitest+RTL 最小基线 + Rust `engine_bridge` 集成测试目录化
 - [x] 事件流测试：`api.ts` 桥接测试 + `App.tsx` 事件驱动集成测试（含 Fence Error 恢复路径）
-- [x] CI 接入：新增 `frontend-test` job，执行 `studio` 前端 Vitest 测试
+- [x] CI boundary update: Studio Vitest checks moved to `../sptorch-studio`; framework CI keeps Rust base checks only
 - [ ] v1.1：`hal-ffi` ABI 扩展（真实 fence 信号、队列深度与硬件状态）
 - [x] 产品解耦（框架/产品边界）：`text2sql` 收敛为框架无关服务层，训练/推理引擎迁移至 `cli-text2sql` 产品运行时
-- [x] Cargo 工程解耦：框架根 workspace 与 `products/` 独立 workspace 分离，产品通过 `sptorch` 门面 crate 引入框架能力
+- [x] Three-repo split: Text2SQL moved to `../text2sql`; Studio moved to `../sptorch-studio`; both use Git/main framework dependencies
 - [x] 稳定 API 收敛：产品侧依赖统一切换到 `sptorch::v1` 命名空间，减少对内部 crate 直连
 - [x] 发布前清单执行：`sptorch` 元数据补齐 + 非发布目标 `publish=false` + `core-tensor` 打包链路验证通过
 - [ ] 发布阻塞项：`sptorch` 打包仍需先发布/可解析其内部依赖 crate（如 `core-autograd` 等）

@@ -27,7 +27,7 @@ Naming convention: crates.io package names use `sptorch-*`; Rust library crate i
 13. `sptorch-live-evolution`（依赖 core-tensor + core-ops + nn + optim + versioning）
 14. `sptorch`（依赖以上框架能力）
 
-> 说明：`sptorch-mock-npu`、`sptorch-cli-train`、`sptorch-cli-train-gpu`、`sptorch-studio`、`products/*` 不参与 crates.io 发布。
+> Note: `sptorch-mock-npu`, `sptorch-cli-train`, and `sptorch-cli-train-gpu` are not published to crates.io. Text2SQL and Studio are independent repositories, not framework workspace publish targets.
 
 ## C. 发布执行命令模板
 

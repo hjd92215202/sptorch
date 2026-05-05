@@ -1,16 +1,17 @@
-# SPTorch Framework/Product 发布与版本策略（v1）
+# SPTorch Three-Repository Release Strategy (v2)
 
-本文档定义“框架是框架、产品是产品”的发布边界与版本策略，供后续拆分为两个仓库时直接复用。
+This document defines the repository and release boundary: framework is framework, product is product, and IDE is IDE. The current ecosystem uses three independent repositories.
 
-## 1. 工程边界
+## 1. Repository Boundaries
 
-- 框架工程：仓库根 `Cargo.toml` workspace（`crates/*` + `studio/src-tauri`）。
-- 产品工程：`products/Cargo.toml` workspace（`text2sql` + `cli-text2sql`）。
-- 产品通过 `sptorch` 门面 crate 引入框架能力，不直接依赖内部子 crate。
+- Framework repo: `C:\Users\brace\Documents\work\ai\sptorch`, root Cargo workspace, `crates/*` only.
+- Product repo: `C:\Users\brace\Documents\work\ai\text2sql`, `text2sql/` plus `cli-text2sql/`.
+- IDE repo: `C:\Users\brace\Documents\work\ai\sptorch-studio`, Tauri 2 backend, React frontend, Studio tests.
+- The framework repo must not depend on product or IDE code. Product and IDE consume the framework through Git or versioned dependencies.
 
-## 2. 稳定 API 约束
+## 2. Stable API Contract
 
-对外稳定 API 仅通过 `crates/sptorch` 暴露，首选命名空间：
+External product code should prefer the `crates/sptorch` facade namespaces:
 
 - `sptorch::v1::nn`
 - `sptorch::v1::optim`
@@ -18,37 +19,40 @@
 - `sptorch::v1::checkpoint`
 - `sptorch::v1::prelude`
 
-非 `v1` 命名空间默认视为内部实现细节，不承诺稳定性。
+Text2SQL should depend on the `sptorch` facade. Studio may also depend on protocol/runtime crates such as `sptorch-versioning`, `sptorch-live-evolution`, and `sptorch-hal` because it is the ecosystem control center.
 
-## 3. 版本策略（SemVer）
+## 3. Transition Dependency Policy
 
-- `sptorch` 使用 SemVer。
-- 在 `v1` 命名空间内：
-  - 兼容增强使用 MINOR（`0.x` 阶段可按团队策略先行，但发布后建议严格化）。
-  - 破坏性变更必须通过新命名空间（如 `v2`）并保留 `v1` 过渡窗口。
-
-## 4. 发布策略
-
-框架发布顺序（未来上 crates.io）：
-
-1. 发布底层依赖 crate（如 `sptorch-core-tensor/sptorch-core-ops/sptorch-nn/sptorch-optim/...`，可按需设 `publish = false`）。
-2. 发布门面 crate `sptorch`。
-3. 产品仓库将依赖切换为：`sptorch = "<version>"`。
-
-过渡期（未上 crates.io）建议：
+Before the full framework is published to crates.io, external repositories use Git dependencies:
 
 ```toml
-sptorch = { git = "<framework-repo>", rev = "<commit>" }
+sptorch = { git = "https://github.com/hjd92215202/sptorch.git", branch = "main" }
 ```
 
-## 5. CI 建议
+Studio uses the same Git source for framework subcrates:
 
-- 框架 CI：`cargo test --workspace`（根目录）。
-- 产品 CI：`cargo test --manifest-path products/Cargo.toml --workspace`。
-- 二者保持独立 job，避免耦合发布节奏。
+```toml
+sptorch-versioning = { git = "https://github.com/hjd92215202/sptorch.git", branch = "main" }
+sptorch-live-evolution = { git = "https://github.com/hjd92215202/sptorch.git", branch = "main" }
+```
 
-## 6. 仓库拆分计划（后续）
+After framework publishing stabilizes, product and IDE repos should move to crates.io versions or fixed Git `rev` pins.
 
-- 仓库 A：`sptorch-framework`（保留 `crates/*`, `studio/`）。
-- 仓库 B：`sptorch-text2sql`（保留 `products/*`）。
-- 仓库 B 仅依赖仓库 A 的 `sptorch` 门面 crate。
+## 4. Release Strategy
+
+1. Publish foundational framework crates first, for example `sptorch-core-tensor`, `sptorch-data`, and `sptorch-versioning`.
+2. Publish dependent framework crates, for example `sptorch-core-ops`, `sptorch-nn`, `sptorch-optim`, and `sptorch-live-evolution`.
+3. Publish the facade crate `sptorch`.
+4. Update Text2SQL and Studio dependencies in their own repositories.
+
+## 5. CI Boundaries
+
+- Framework CI: Rust framework checks only, such as `cargo fmt`, `cargo clippy`, and `cargo test --workspace`.
+- Text2SQL CI: `cargo metadata --no-deps`, `cargo check --workspace`, and `cargo test --workspace`.
+- Studio CI: Tauri/Rust checks plus frontend `npm ci` and `npm run test`.
+
+## 6. Repository Roles
+
+- `sptorch`: reusable framework, protocol, HAL, runtime, and release pipeline.
+- `text2sql`: production product built from SPTorch capabilities.
+- `sptorch-studio`: ecosystem IDE/control center built on SPTorch protocols and telemetry.

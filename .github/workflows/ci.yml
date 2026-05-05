@@ -26,29 +26,3 @@ jobs:
         run: cargo build -p sptorch-mock-npu
       - name: Test
         run: cargo test --workspace --exclude sptorch-runtime-cuda --exclude sptorch-cli-train-gpu --exclude sptorch-distributed
-
-  product-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Product tests
-        run: cargo test --manifest-path products/Cargo.toml --workspace
-
-  frontend-test:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: studio
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: studio/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Frontend tests (Vitest)
-        run: npm run test

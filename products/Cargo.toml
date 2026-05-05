@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "text2sql",
-    "cli-text2sql",
-]
-resolver = "2"

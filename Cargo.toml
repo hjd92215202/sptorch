@@ -17,6 +17,5 @@ members = [
     "crates/mock-npu",
     "crates/distributed",
     "crates/live-evolution",
-    "studio/src-tauri",
 ]
 resolver = "2"
