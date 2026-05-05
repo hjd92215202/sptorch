@@ -136,7 +136,7 @@ impl EngineBridge {
         }
     }
 
-    #[cfg(test)]
+    #[doc(hidden)]
     pub fn mark_stream_started_for_test(&self) -> bool {
         self.mark_stream_started()
     }
