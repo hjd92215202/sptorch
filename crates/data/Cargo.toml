@@ -1,15 +1,18 @@
 [package]
-name = "data"
+name = "sptorch-data"
 version = "0.1.0"
 edition = "2021"
 description = "Tokenizers and dataset/data-loader utilities for SPTorch"
 license = "MIT"
 repository = "https://github.com/hjd92215202/sptorch"
 homepage = "https://github.com/hjd92215202/sptorch"
-documentation = "https://docs.rs/data"
+documentation = "https://docs.rs/sptorch-data"
 readme = "README.md"
 keywords = ["tokenizer", "dataset", "dataloader", "nlp", "sptorch"]
 categories = ["science", "algorithms"]
+
+[lib]
+name = "sptorch_data"
 
 [dependencies]
 rand = "0.8"

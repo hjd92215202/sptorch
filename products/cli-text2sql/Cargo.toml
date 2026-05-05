@@ -1,5 +1,5 @@
 [package]
-name = "cli-text2sql"
+name = "sptorch-text2sql"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -9,7 +9,7 @@ name = "sptorch-text2sql"
 path = "src/main.rs"
 
 [dependencies]
-text2sql = { path = "../text2sql" }
+sptorch-text2sql-service = { path = "../text2sql" }
 sptorch = { path = "../../crates/sptorch" }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"], default-features = false }

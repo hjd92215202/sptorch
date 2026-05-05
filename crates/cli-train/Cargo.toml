@@ -1,5 +1,5 @@
 [package]
-name = "cli-train"
+name = "sptorch-cli-train"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -9,14 +9,14 @@ name = "sptorch-train"
 path = "src/main.rs"
 
 [features]
-cuda = ["core-ops/cuda"]
+cuda = ["sptorch-core-ops/cuda"]
 
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
-core-ops = { version = "0.1.0", path = "../core-ops" }
-nn = { version = "0.1.0", path = "../nn" }
-optim = { version = "0.1.0", path = "../optim" }
-data = { version = "0.1.0", path = "../data" }
-serialize = { version = "0.1.0", path = "../serialize" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-ops = { version = "0.1.0", path = "../core-ops" }
+sptorch-nn = { version = "0.1.0", path = "../nn" }
+sptorch-optim = { version = "0.1.0", path = "../optim" }
+sptorch-data = { version = "0.1.0", path = "../data" }
+sptorch-serialize = { version = "0.1.0", path = "../serialize" }
 rand = "0.8"
 

@@ -1,8 +1,8 @@
-use core_ops::*;
-use data::{BpeTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
-use nn::{generate_greedy, generate_with_sampling, GPT};
-use optim::{clip_grad_norm, AdamW, CosineScheduler, LrScheduler, Optimizer};
-use serialize::{load_checkpoint, save_checkpoint};
+use sptorch_core_ops::*;
+use sptorch_data::{BpeTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
+use sptorch_nn::{generate_greedy, generate_with_sampling, GPT};
+use sptorch_optim::{clip_grad_norm, AdamW, CosineScheduler, LrScheduler, Optimizer};
+use sptorch_serialize::{load_checkpoint, save_checkpoint};
 use std::time::Instant;
 
 fn main() {

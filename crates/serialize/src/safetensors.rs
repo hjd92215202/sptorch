@@ -1,5 +1,5 @@
-use core_tensor::Tensor;
 use serde::Deserialize;
+use sptorch_core_tensor::Tensor;
 use std::collections::HashMap;
 use std::fs;
 use std::io;

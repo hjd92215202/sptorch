@@ -1,4 +1,4 @@
-use core_tensor::Tensor;
+use sptorch_core_tensor::Tensor;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::Path;

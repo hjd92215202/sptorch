@@ -5,9 +5,9 @@
 //! - `TokenTrie` + `TokenConstraint` for constrained decoding
 //! - `generate_greedy`, `generate_with_sampling`, `generate_constrained`
 
-use core_ops::*;
-use core_tensor::Tensor;
 use rand::Rng;
+use sptorch_core_ops::*;
+use sptorch_core_tensor::Tensor;
 
 // ============ Module Trait ============
 
@@ -299,7 +299,7 @@ impl Module for LayerNorm {
         if input.requires_grad() || self.gamma.requires_grad() {
             let mut inner = res.0.write().unwrap();
             inner.requires_grad = true;
-            inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
+            inner.creator = Some(std::sync::Arc::new(sptorch_core_tensor::Node {
                 op: Box::new(LayerNormOp {
                     normalized,
                     gamma,
@@ -330,7 +330,7 @@ struct LayerNormOp {
     shape: Vec<usize>,
 }
 
-impl core_tensor::Op for LayerNormOp {
+impl sptorch_core_tensor::Op for LayerNormOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         let g = grad_output.contiguous_data();
         let dim = self.dim;
@@ -488,7 +488,7 @@ fn reshape_to_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize) 
     if x.requires_grad() {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
-        inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
+        inner.creator = Some(std::sync::Arc::new(sptorch_core_tensor::Node {
             op: Box::new(ReshapeToHeadsOp {
                 seq_len,
                 n_head,
@@ -508,7 +508,7 @@ struct ReshapeToHeadsOp {
     head_dim: usize,
 }
 
-impl core_tensor::Op for ReshapeToHeadsOp {
+impl sptorch_core_tensor::Op for ReshapeToHeadsOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         // Reverse: [n_head, seq_len, head_dim] -> [seq_len, d_model]
         let g = grad_output.contiguous_data();
@@ -544,7 +544,7 @@ fn reshape_from_heads(x: &Tensor, seq_len: usize, n_head: usize, head_dim: usize
     if x.requires_grad() {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
-        inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
+        inner.creator = Some(std::sync::Arc::new(sptorch_core_tensor::Node {
             op: Box::new(ReshapeFromHeadsOp {
                 seq_len,
                 n_head,
@@ -564,7 +564,7 @@ struct ReshapeFromHeadsOp {
     head_dim: usize,
 }
 
-impl core_tensor::Op for ReshapeFromHeadsOp {
+impl sptorch_core_tensor::Op for ReshapeFromHeadsOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         // Reverse: [seq_len, d_model] -> [n_head, seq_len, head_dim]
         let g = grad_output.contiguous_data();
@@ -600,7 +600,7 @@ fn batch_transpose(x: &Tensor, batch: usize, rows: usize, cols: usize) -> Tensor
     if x.requires_grad() {
         let mut inner = res.0.write().unwrap();
         inner.requires_grad = true;
-        inner.creator = Some(std::sync::Arc::new(core_tensor::Node {
+        inner.creator = Some(std::sync::Arc::new(sptorch_core_tensor::Node {
             op: Box::new(BatchTransposeOp { batch, rows, cols }),
             inputs: vec![x.clone()],
         }));
@@ -616,7 +616,7 @@ struct BatchTransposeOp {
     cols: usize,
 }
 
-impl core_tensor::Op for BatchTransposeOp {
+impl sptorch_core_tensor::Op for BatchTransposeOp {
     fn backward(&self, grad_output: &Tensor) -> Vec<Option<Tensor>> {
         // Transpose back: [B, cols, rows] -> [B, rows, cols]
         let g = grad_output.contiguous_data();

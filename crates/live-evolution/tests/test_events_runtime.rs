@@ -1,5 +1,5 @@
-use live_evolution::events::{publish, subscribe, LiveEvolutionEvent};
-use versioning::{EvolutionMetrics, FencePhase, FenceState, HardwareState, VersionNode};
+use sptorch_live_evolution::events::{publish, subscribe, LiveEvolutionEvent};
+use sptorch_versioning::{EvolutionMetrics, FencePhase, FenceState, HardwareState, VersionNode};
 
 #[tokio::test]
 async fn test_events_roundtrip_variants() {

@@ -1,11 +1,11 @@
 [package]
-name = "runtime-cuda"
+name = "sptorch-runtime-cuda"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
 cudarc = { version = "0.12", features = ["cublas", "nvrtc", "cuda-12040"] }
 
 [dev-dependencies]
-core-ops = { version = "0.1.0", path = "../core-ops" }
+sptorch-core-ops = { version = "0.1.0", path = "../core-ops" }

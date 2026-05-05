@@ -4,8 +4,8 @@ mod engine;
 
 use engine::train_text2sql_model;
 use sptorch::v1::checkpoint::save_checkpoint;
-use text2sql::schema::{ColumnSchema, TableSchema};
-use text2sql::server::{start_server, AppState, ProductInferenceEngine};
+use sptorch_text2sql_service::schema::{ColumnSchema, TableSchema};
+use sptorch_text2sql_service::server::{start_server, AppState, ProductInferenceEngine};
 
 #[tokio::main]
 async fn main() {
@@ -67,7 +67,7 @@ async fn run_train(args: &[String]) {
     eprintln!("\n[sptorch-text2sql] test generation:");
     for q in &test_questions {
         let sql = engine::generate_sql(&model, &tok, q, &schemas, 50);
-        let valid = text2sql::sql_constraint::validate_sql(&sql);
+        let valid = sptorch_text2sql_service::sql_constraint::validate_sql(&sql);
         eprintln!(
             "  Q: {} => {} [{}]",
             q,
@@ -83,7 +83,7 @@ async fn run_serve(args: &[String]) {
     let schemas = if let Some(path) = db_path {
         let url = format!("sqlite:{}", path);
         eprintln!("[sptorch-text2sql] loading schema from {}", url);
-        match text2sql::schema::fetch_sqlite_schema(&url).await {
+        match sptorch_text2sql_service::schema::fetch_sqlite_schema(&url).await {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("failed to fetch schema: {}", e);
@@ -133,8 +133,8 @@ fn run_query(args: &[String]) {
     }
 
     let schemas = demo_schemas();
-    let sql = text2sql::sql_constraint::generate_sql_stub(&question, &schemas);
-    let valid = text2sql::sql_constraint::validate_sql(&sql);
+    let sql = sptorch_text2sql_service::sql_constraint::generate_sql_stub(&question, &schemas);
+    let valid = sptorch_text2sql_service::sql_constraint::validate_sql(&sql);
     println!("{}", sql);
     if !valid.is_valid() {
         eprintln!("WARNING: generated SQL may be invalid");

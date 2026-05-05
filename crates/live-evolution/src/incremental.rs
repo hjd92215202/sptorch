@@ -1,5 +1,5 @@
-use core_tensor::Tensor;
-use optim::Optimizer;
+use sptorch_core_tensor::Tensor;
+use sptorch_optim::Optimizer;
 
 /// Incremental training scheduler: triggers micro-batch updates
 /// when new data arrives, instead of full epoch-based training.
@@ -55,7 +55,7 @@ impl<O: Optimizer> IncrementalTrainer<O> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use optim::SGD;
+    use sptorch_optim::SGD;
 
     #[test]
     fn test_incremental_trainer_buffering() {

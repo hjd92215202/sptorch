@@ -903,3 +903,5 @@ bdf6661 GPU Attention模型: 单头attention+手动backward, loss 3.13→2.38
 - CUDA: 12.4 (nvcc via Anaconda + cudarc 0.12)
 - Rust: stable
 - 构建: cargo, release 模式用于训练
+
+- [x] Release naming standardization: crates.io package names use `sptorch-*`; Rust library crate identifiers use `sptorch_*`.

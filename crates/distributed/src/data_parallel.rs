@@ -1,6 +1,6 @@
 //! Multi-GPU DataParallel: split batch across devices, forward on each, allreduce gradients.
 
-use core_tensor::{Device, Tensor};
+use sptorch_core_tensor::{Device, Tensor};
 
 /// DataParallel wrapper: distributes batches across multiple GPU devices.
 pub struct DataParallel {

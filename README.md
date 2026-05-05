@@ -55,13 +55,13 @@ studio/
 cargo test --workspace
 
 # CPU 训练 MiniGPT
-cargo run --release -p cli-train
+cargo run --release -p sptorch-cli-train
 
 # GPU 训练（需要 CUDA 12.x）
-cargo run --release -p cli-train-gpu
+cargo run --release -p sptorch-cli-train-gpu
 
 # Text2SQL 服务（生态样板产品）
-cargo run --release --manifest-path products/Cargo.toml -p cli-text2sql
+cargo run --release --manifest-path products/Cargo.toml -p sptorch-text2sql
 
 # 产品 workspace 测试
 cargo test --manifest-path products/Cargo.toml --workspace
@@ -73,27 +73,27 @@ cargo test --manifest-path products/Cargo.toml --workspace
 ## 发布前清单（当前状态）
 
 - [x] `sptorch` 已补齐发布元数据（repository/homepage/documentation/readme/keywords/categories）。
-- [x] 非发布目标已标注 `publish = false`：`cli-train`、`cli-train-gpu`、`mock-npu`、`sptorch-studio`、`products/*`。
-- [x] `cargo package -p core-tensor --no-verify` 可通过（作为链路基线）。
-- [ ] `cargo package -p sptorch --no-verify` 仍阻塞：依赖的内部 crate（如 `core-autograd`）尚未发布到 registry。
+- [x] 非发布目标已标注 `publish = false`：`sptorch-cli-train`、`sptorch-cli-train-gpu`、`sptorch-mock-npu`、`sptorch-studio`、`products/*`。
+- [x] `cargo package -p sptorch-core-tensor --no-verify` 可通过（作为链路基线）。
+- [ ] `cargo package -p sptorch --no-verify` 仍阻塞：依赖的内部 crate（如 `sptorch-core-autograd`）尚未发布到 registry。
 
 ## 测试覆盖
 
 | crate | 测试数 | 说明 |
 |-------|--------|------|
-| core-tensor | 8 | F16/BF16 转换、DType 接口 |
-| core-ops | 56 | 所有算子前向+反向+grad check |
-| nn | 23 | Linear/LoRA/Embedding/LayerNorm/MHA/Transformer/GPT |
-| optim | 10 | SGD/AdamW/clip/CosineScheduler |
-| data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
-| runtime-cuda | 12 | GPU 算子 + CPU 对比 |
-| serialize | 7 | checkpoint roundtrip + safetensors |
-| core-autograd | 3 | 基础 autograd |
-| hal | 15 | Backend + KernelProvider 20 个算子 |
-| hal-ffi | 10 | FFI 全链路集成测试 |
-| distributed | 7 | AllReduce + gRPC + 多步训练 |
-| live-evolution | 16 | 双缓冲/EWC/监控/端到端 |
-| text2sql | 11 | Schema/RAG/SQL 约束/SQLite |
+| sptorch-core-tensor | 8 | F16/BF16 转换、DType 接口 |
+| sptorch-core-ops | 56 | 所有算子前向+反向+grad check |
+| sptorch-nn | 23 | Linear/LoRA/Embedding/LayerNorm/MHA/Transformer/GPT |
+| sptorch-optim | 10 | SGD/AdamW/clip/CosineScheduler |
+| sptorch-data | 10 | CharTokenizer/BPE/Dataset/DataLoader |
+| sptorch-runtime-cuda | 12 | GPU 算子 + CPU 对比 |
+| sptorch-serialize | 7 | checkpoint roundtrip + safetensors |
+| sptorch-core-autograd | 3 | 基础 autograd |
+| sptorch-hal | 15 | Backend + KernelProvider 20 个算子 |
+| sptorch-hal-ffi | 10 | FFI 全链路集成测试 |
+| sptorch-distributed | 7 | AllReduce + gRPC + 多步训练 |
+| sptorch-live-evolution | 16 | 双缓冲/EWC/监控/端到端 |
+| sptorch-text2sql | 11 | Schema/RAG/SQL 约束/SQLite |
 | **合计** | **211** | **全部通过** |
 
 ## 开发路线

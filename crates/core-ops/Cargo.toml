@@ -1,12 +1,15 @@
 [package]
-name = "core-ops"
+name = "sptorch-core-ops"
 version = "0.1.0"
 edition = "2021"
 
 [features]
-cuda = ["runtime-cuda"]
+cuda = ["sptorch-runtime-cuda"]
+
+[lib]
+name = "sptorch_core_ops"
 
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
-runtime-cuda = { version = "0.1.0", path = "../runtime-cuda", optional = true }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-runtime-cuda = { version = "0.1.0", path = "../runtime-cuda", optional = true }
 matrixmultiply = "0.3"

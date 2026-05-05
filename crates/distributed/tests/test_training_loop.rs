@@ -1,6 +1,6 @@
-use distributed::allreduce::average_gradients;
-use distributed::coordinator;
-use distributed::worker::Worker;
+use sptorch_distributed::allreduce::average_gradients;
+use sptorch_distributed::coordinator;
+use sptorch_distributed::worker::Worker;
 
 /// End-to-end distributed training simulation:
 /// 2 workers each compute local gradients, allreduce via coordinator,

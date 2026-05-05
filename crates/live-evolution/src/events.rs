@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
+use sptorch_versioning::{EvolutionMetrics, FenceState, HardwareState, VersionNode};
 use tokio::sync::broadcast;
-use versioning::{EvolutionMetrics, FenceState, HardwareState, VersionNode};
 
 #[derive(Debug, Clone)]
 pub enum LiveEvolutionEvent {

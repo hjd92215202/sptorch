@@ -4,9 +4,9 @@
 //! wrapping its `sptorch_*` C symbols into a `KernelProvider` implementation.
 //! See `include/sptorch_hal.h` for the C API that vendors must implement.
 
-use core_tensor::Device;
-use hal::{Backend, DeviceId, HalError, HalResult, KernelProvider, RawBuffer};
 use libloading::{Library, Symbol};
+use sptorch_core_tensor::Device;
+use sptorch_hal::{Backend, DeviceId, HalError, HalResult, KernelProvider, RawBuffer};
 use std::ffi::CStr;
 use std::path::Path;
 use std::sync::Arc;
@@ -69,7 +69,7 @@ impl std::fmt::Debug for FfiDeviceBuffer {
     }
 }
 
-impl core_tensor::DeviceBuffer for FfiDeviceBuffer {
+impl sptorch_core_tensor::DeviceBuffer for FfiDeviceBuffer {
     fn device(&self) -> Device {
         Device::Custom(0)
     }
@@ -86,7 +86,10 @@ impl core_tensor::DeviceBuffer for FfiDeviceBuffer {
         host
     }
 
-    fn from_host(_data: &[f32], _device: Device) -> std::result::Result<Box<dyn core_tensor::DeviceBuffer>, String> {
+    fn from_host(
+        _data: &[f32],
+        _device: Device,
+    ) -> std::result::Result<Box<dyn sptorch_core_tensor::DeviceBuffer>, String> {
         Err("FfiDeviceBuffer::from_host requires a backend reference; use FfiBackend::upload() instead".into())
     }
 }

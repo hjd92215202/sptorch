@@ -1,7 +1,7 @@
-use core_ops::cross_entropy_loss;
-use core_tensor::Tensor;
-use nn::{Linear, LoRALinear, Module};
-use optim::{zero_grad, Optimizer, SGD};
+use sptorch_core_ops::cross_entropy_loss;
+use sptorch_core_tensor::Tensor;
+use sptorch_nn::{Linear, LoRALinear, Module};
+use sptorch_optim::{zero_grad, Optimizer, SGD};
 
 /// End-to-end LoRA fine-tuning test:
 /// Build a tiny model, wrap its linear layers with LoRA, train on synthetic data,

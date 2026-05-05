@@ -1,4 +1,4 @@
-use core_tensor::Tensor;
+use sptorch_core_tensor::Tensor;
 
 // ============ Optimizer Trait ============
 
@@ -266,7 +266,7 @@ impl SGD {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_tensor::Tensor;
+    use sptorch_core_tensor::Tensor;
 
     fn make_param_with_grad(data: Vec<f32>, grad_data: Vec<f32>) -> Tensor {
         let shape = vec![data.len()];

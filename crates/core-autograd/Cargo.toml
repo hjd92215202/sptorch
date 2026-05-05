@@ -1,8 +1,11 @@
 [package]
-name = "core-autograd"
+name = "sptorch-core-autograd"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "sptorch_core_autograd"
+
 [dependencies]
 # 告诉 Cargo，core-tensor 在隔壁文件夹
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }

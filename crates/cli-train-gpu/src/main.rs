@@ -1,6 +1,6 @@
-use data::{CharTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
 use rand::Rng;
-use runtime_cuda::{CudaBackend, GpuTensor};
+use sptorch_data::{CharTokenizer, DataLoader, Dataset, TextDataset, Tokenizer};
+use sptorch_runtime_cuda::{CudaBackend, GpuTensor};
 use std::time::Instant;
 
 // ============ GPU MiniGPT with Attention + Manual Backward ============

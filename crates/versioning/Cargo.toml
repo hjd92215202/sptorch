@@ -1,14 +1,14 @@
 [package]
-name = "versioning"
+name = "sptorch-versioning"
 version = "0.1.0"
 edition = "2021"
 description = "Versioned tensor protocol and telemetry contracts for SPTorch Studio and runtime"
 license = "MIT"
 repository = "https://github.com/hjd92215202/sptorch"
 homepage = "https://github.com/hjd92215202/sptorch"
-documentation = "https://docs.rs/versioning"
+documentation = "https://docs.rs/sptorch-versioning"
 readme = "README.md"
-keywords = ["versioning", "telemetry", "tensor", "protocol", "sptorch"]
+keywords = ["sptorch-versioning", "telemetry", "tensor", "protocol", "sptorch"]
 categories = ["science", "algorithms"]
 
 [dependencies]

@@ -4,16 +4,16 @@ use std::sync::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hal::Backend;
-use hal_ffi::FfiBackend;
-use live_evolution::events::{subscribe as subscribe_live_events, LiveEvolutionEvent};
-use live_evolution::runtime::ensure_runtime_started;
 use serde::{Deserialize, Serialize};
-use tauri::Emitter;
-use versioning::{
+use sptorch_hal::Backend;
+use sptorch_hal_ffi::FfiBackend;
+use sptorch_live_evolution::events::{subscribe as subscribe_live_events, LiveEvolutionEvent};
+use sptorch_live_evolution::runtime::ensure_runtime_started;
+use sptorch_versioning::{
     BufferPointers, FencePhase, FenceState, HardwareState, LayerPolicy, TensorLayoutSnapshot, UpdatePolicy,
     VersionNode, VersionedStorage, EVENT_FENCE, EVENT_HARDWARE_STATE, EVENT_METRICS, EVENT_VERSION_COMMIT,
 };
+use tauri::Emitter;
 
 pub struct EngineBridge {
     pub storage: Arc<RwLock<VersionedStorage>>,
@@ -197,7 +197,7 @@ pub async fn trigger_atomic_swap(app: tauri::AppHandle, state: tauri::State<'_, 
 
     if let Some(last) = fence_states.last() {
         let hw = HardwareState {
-            backend: "simulated-hal-ffi".to_string(),
+            backend: "simulated-sptorch-hal-ffi".to_string(),
             queue_depth: last.queue_depth,
             online: !matches!(last.phase, FencePhase::Error),
         };

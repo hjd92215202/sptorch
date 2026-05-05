@@ -1,4 +1,4 @@
-use core_tensor::Tensor;
+use sptorch_core_tensor::Tensor;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, RwLock,

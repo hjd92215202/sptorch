@@ -1,15 +1,18 @@
 [package]
-name = "core-tensor"
+name = "sptorch-core-tensor"
 version = "0.1.0"
 edition = "2021"
 description = "Core tensor storage, dtype and autograd-ready tensor primitives for SPTorch"
 license = "MIT"
 repository = "https://github.com/hjd92215202/sptorch"
 homepage = "https://github.com/hjd92215202/sptorch"
-documentation = "https://docs.rs/core-tensor"
+documentation = "https://docs.rs/sptorch-core-tensor"
 readme = "README.md"
 keywords = ["tensor", "autograd", "deep-learning", "rust", "sptorch"]
 categories = ["science", "algorithms"]
+
+[lib]
+name = "sptorch_core_tensor"
 
 [dependencies]
 thiserror = "2"

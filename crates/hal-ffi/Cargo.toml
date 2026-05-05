@@ -1,9 +1,9 @@
 [package]
-name = "hal-ffi"
+name = "sptorch-hal-ffi"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hal = { version = "0.1.0", path = "../hal" }
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-hal = { version = "0.1.0", path = "../hal" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
 libloading = "0.8"

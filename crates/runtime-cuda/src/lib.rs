@@ -617,7 +617,7 @@ mod tests {
 
 // ============ BackendDispatch implementation ============
 
-use core_tensor::{register_backend, BackendDispatch, Device};
+use sptorch_core_tensor::{register_backend, BackendDispatch, Device};
 use std::sync::OnceLock;
 
 static CUDA_BACKEND: OnceLock<Option<CudaBackend>> = OnceLock::new();

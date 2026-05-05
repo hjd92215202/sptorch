@@ -1,12 +1,12 @@
 [package]
-name = "nn"
+name = "sptorch-nn"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
-core-ops = { version = "0.1.0", path = "../core-ops" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-ops = { version = "0.1.0", path = "../core-ops" }
 rand = "0.8"
 
 [dev-dependencies]
-optim = { version = "0.1.0", path = "../optim" }
+sptorch-optim = { version = "0.1.0", path = "../optim" }

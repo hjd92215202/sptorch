@@ -1,4 +1,4 @@
-﻿//! Versioned tensor protocol for SPTorch Studio.
+//! Versioned tensor protocol for SPTorch Studio.
 
 use serde::{Deserialize, Serialize};
 

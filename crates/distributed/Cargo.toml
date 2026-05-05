@@ -1,11 +1,14 @@
 [package]
-name = "distributed"
+name = "sptorch-distributed"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "sptorch_distributed"
+
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
-serialize = { version = "0.1.0", path = "../serialize" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-serialize = { version = "0.1.0", path = "../serialize" }
 tokio = { version = "1", features = ["full"] }
 tonic = "0.12"
 prost = "0.13"

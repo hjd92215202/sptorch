@@ -5,7 +5,7 @@
 //! softmax, log_softmax, cross_entropy_loss, embedding_lookup, relu, gelu,
 //! scale, masked_fill, batch_matmul, broadcast_add, concat.
 
-use core_tensor::{get_backend, Device, Node, Op, Tensor};
+use sptorch_core_tensor::{get_backend, Device, Node, Op, Tensor};
 use std::sync::Arc;
 
 // ============ Backend-aware dispatch helper ============
@@ -15,7 +15,7 @@ fn dispatch_binary(
     b_data: &[f32],
     device: &Device,
     cpu_fn: impl Fn(&[f32], &[f32]) -> Vec<f32>,
-    backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &[f32], &mut [f32]),
+    backend_fn: impl Fn(&dyn sptorch_core_tensor::BackendDispatch, &[f32], &[f32], &mut [f32]),
 ) -> Vec<f32> {
     if let Some(backend) = get_backend(device) {
         let mut out = vec![0.0f32; a_data.len()];
@@ -30,7 +30,7 @@ fn dispatch_unary(
     a_data: &[f32],
     device: &Device,
     cpu_fn: impl Fn(&[f32]) -> Vec<f32>,
-    backend_fn: impl Fn(&dyn core_tensor::BackendDispatch, &[f32], &mut [f32]),
+    backend_fn: impl Fn(&dyn sptorch_core_tensor::BackendDispatch, &[f32], &mut [f32]),
 ) -> Vec<f32> {
     if let Some(backend) = get_backend(device) {
         let mut out = vec![0.0f32; a_data.len()];
@@ -45,7 +45,7 @@ fn dispatch_unary(
 
 #[cfg(feature = "cuda")]
 mod gpu_accel {
-    use runtime_cuda::{CudaBackend, GpuTensor};
+    use sptorch_runtime_cuda::{CudaBackend, GpuTensor};
     use std::sync::OnceLock;
 
     static GPU: OnceLock<Option<CudaBackend>> = OnceLock::new();
@@ -1977,7 +1977,7 @@ mod tests {
 
     #[test]
     fn test_backend_dispatch_custom() {
-        use core_tensor::{register_backend, BackendDispatch};
+        use sptorch_core_tensor::{register_backend, BackendDispatch};
         use std::sync::Arc;
 
         struct DoubleBackend;

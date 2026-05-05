@@ -1,5 +1,5 @@
 [package]
-name = "text2sql"
+name = "sptorch-text2sql-service"
 version = "0.1.0"
 edition = "2021"
 publish = false

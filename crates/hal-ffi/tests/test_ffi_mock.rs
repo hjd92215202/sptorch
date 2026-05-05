@@ -1,5 +1,5 @@
-use hal::{Backend, KernelProvider};
-use hal_ffi::FfiBackend;
+use sptorch_hal::{Backend, KernelProvider};
+use sptorch_hal_ffi::FfiBackend;
 use std::path::PathBuf;
 
 fn mock_npu_path() -> PathBuf {
@@ -9,7 +9,7 @@ fn mock_npu_path() -> PathBuf {
     p.push("target");
     p.push("debug");
     if cfg!(target_os = "windows") {
-        p.push("mock_npu.dll");
+        p.push("sptorch_mock_npu.dll");
     } else if cfg!(target_os = "macos") {
         p.push("libmock_npu.dylib");
     } else {
@@ -22,7 +22,7 @@ fn load_mock() -> FfiBackend {
     let path = mock_npu_path();
     assert!(
         path.exists(),
-        "mock_npu lib not found at {:?}. Run `cargo build -p mock-npu` first.",
+        "sptorch_mock_npu lib not found at {:?}. Run `cargo build -p sptorch-mock-npu` first.",
         path
     );
     FfiBackend::load(&path).expect("failed to load mock NPU backend")
@@ -31,7 +31,7 @@ fn load_mock() -> FfiBackend {
 #[test]
 fn test_ffi_backend_name() {
     let backend = load_mock();
-    assert_eq!(backend.name(), "mock_npu");
+    assert_eq!(backend.name(), "sptorch_mock_npu");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn test_ffi_upload_download() {
     let backend = load_mock();
     let data = vec![1.0f32, 2.0, 3.0, 4.0];
     let buf = backend.upload(&data).expect("upload failed");
-    use core_tensor::DeviceBuffer;
+    use sptorch_core_tensor::DeviceBuffer;
     let downloaded = buf.to_host();
     assert_eq!(downloaded, data);
 }

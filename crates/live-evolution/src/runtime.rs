@@ -4,10 +4,10 @@ use std::sync::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use core_tensor::Tensor;
-use optim::{scale_gradients, Optimizer, SGD};
+use sptorch_core_tensor::Tensor;
+use sptorch_optim::{scale_gradients, Optimizer, SGD};
+use sptorch_versioning::{EvolutionMetrics, FencePhase, FenceState, HardwareState, VersionNode};
 use tokio::time::{sleep, Duration};
-use versioning::{EvolutionMetrics, FencePhase, FenceState, HardwareState, VersionNode};
 
 use crate::double_buffer::DoubleBufferParams;
 use crate::events::{publish, LiveEvolutionEvent};

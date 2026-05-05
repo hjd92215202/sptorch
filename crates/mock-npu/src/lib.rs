@@ -2,7 +2,7 @@ use std::ffi::c_void;
 use std::os::raw::c_char;
 use std::slice;
 
-static NAME: &[u8] = b"mock_npu\0";
+static NAME: &[u8] = b"sptorch_mock_npu\0";
 
 #[no_mangle]
 pub extern "C" fn sptorch_backend_init() -> i32 {

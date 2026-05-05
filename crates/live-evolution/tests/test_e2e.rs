@@ -1,8 +1,8 @@
-use core_tensor::Tensor;
-use live_evolution::double_buffer::DoubleBufferParams;
-use live_evolution::incremental::IncrementalTrainer;
-use live_evolution::monitor::{MonitorAction, TrainingMonitor};
-use optim::SGD;
+use sptorch_core_tensor::Tensor;
+use sptorch_live_evolution::double_buffer::DoubleBufferParams;
+use sptorch_live_evolution::incremental::IncrementalTrainer;
+use sptorch_live_evolution::monitor::{MonitorAction, TrainingMonitor};
+use sptorch_optim::SGD;
 
 /// End-to-end live evolution test:
 /// DoubleBuffer + IncrementalTrainer + Monitor working together.

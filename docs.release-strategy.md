@@ -1,4 +1,4 @@
-﻿# SPTorch Framework/Product 发布与版本策略（v1）
+# SPTorch Framework/Product 发布与版本策略（v1）
 
 本文档定义“框架是框架、产品是产品”的发布边界与版本策略，供后续拆分为两个仓库时直接复用。
 
@@ -31,7 +31,7 @@
 
 框架发布顺序（未来上 crates.io）：
 
-1. 发布底层依赖 crate（如 `core-tensor/core-ops/nn/optim/...`，可按需设 `publish = false`）。
+1. 发布底层依赖 crate（如 `sptorch-core-tensor/sptorch-core-ops/sptorch-nn/sptorch-optim/...`，可按需设 `publish = false`）。
 2. 发布门面 crate `sptorch`。
 3. 产品仓库将依赖切换为：`sptorch = "<version>"`。
 

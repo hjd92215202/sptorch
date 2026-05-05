@@ -1,6 +1,6 @@
 //! Distributed async checkpoint: non-blocking save/load with resume support.
 
-use core_tensor::Tensor;
+use sptorch_core_tensor::Tensor;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ impl CheckpointManager {
         let filename = format!("checkpoint_step_{}.sptc", step);
         let path = self.save_dir.join(&filename);
 
-        serialize::save_checkpoint(&path, params)?;
+        sptorch_serialize::save_checkpoint(&path, params)?;
 
         self.saved_steps.push(step);
 
@@ -66,13 +66,13 @@ impl CheckpointManager {
             steps.sort();
             let latest = *steps.last().unwrap();
             let path = self.save_dir.join(format!("checkpoint_step_{}.sptc", latest));
-            serialize::load_checkpoint(&path, params)?;
+            sptorch_serialize::load_checkpoint(&path, params)?;
             return Ok(Some(latest));
         }
 
         let latest = *self.saved_steps.last().unwrap();
         let path = self.save_dir.join(format!("checkpoint_step_{}.sptc", latest));
-        serialize::load_checkpoint(&path, params)?;
+        sptorch_serialize::load_checkpoint(&path, params)?;
         Ok(Some(latest))
     }
 

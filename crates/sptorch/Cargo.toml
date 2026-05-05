@@ -12,15 +12,15 @@ keywords = ["deep-learning", "tensor", "autograd", "distributed-training", "rust
 categories = ["science", "algorithms", "hardware-support"]
 
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
-core-autograd = { version = "0.1.0", path = "../core-autograd" }
-core-ops = { version = "0.1.0", path = "../core-ops" }
-nn = { version = "0.1.0", path = "../nn" }
-optim = { version = "0.1.0", path = "../optim" }
-data = { version = "0.1.0", path = "../data" }
-serialize = { version = "0.1.0", path = "../serialize" }
-hal = { version = "0.1.0", path = "../hal" }
-hal-ffi = { version = "0.1.0", path = "../hal-ffi" }
-distributed = { version = "0.1.0", path = "../distributed" }
-live-evolution = { version = "0.1.0", path = "../live-evolution" }
-versioning = { version = "0.1.0", path = "../versioning" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-autograd = { version = "0.1.0", path = "../core-autograd" }
+sptorch-core-ops = { version = "0.1.0", path = "../core-ops" }
+sptorch-nn = { version = "0.1.0", path = "../nn" }
+sptorch-optim = { version = "0.1.0", path = "../optim" }
+sptorch-data = { version = "0.1.0", path = "../data" }
+sptorch-serialize = { version = "0.1.0", path = "../serialize" }
+sptorch-hal = { version = "0.1.0", path = "../hal" }
+sptorch-hal-ffi = { version = "0.1.0", path = "../hal-ffi" }
+sptorch-distributed = { version = "0.1.0", path = "../distributed" }
+sptorch-live-evolution = { version = "0.1.0", path = "../live-evolution" }
+sptorch-versioning = { version = "0.1.0", path = "../versioning" }

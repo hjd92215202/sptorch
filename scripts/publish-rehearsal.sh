@@ -1,20 +1,20 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 ORDER=(
-  core-tensor
-  data
-  versioning
-  optim
-  serialize
-  hal
-  core-autograd
-  runtime-cuda
-  core-ops
-  nn
-  hal-ffi
-  distributed
-  live-evolution
+  sptorch-core-tensor
+  sptorch-data
+  sptorch-versioning
+  sptorch-optim
+  sptorch-serialize
+  sptorch-hal
+  sptorch-core-autograd
+  sptorch-runtime-cuda
+  sptorch-core-ops
+  sptorch-nn
+  sptorch-hal-ffi
+  sptorch-distributed
+  sptorch-live-evolution
   sptorch
 )
 

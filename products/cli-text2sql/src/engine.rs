@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use sptorch::v1::nn::{generate_constrained, GPT, TokenTrie};
 use sptorch::v1::ops::cross_entropy_loss;
 use sptorch::v1::optim::{zero_grad, Optimizer, SGD};
-use text2sql::schema::TableSchema;
-use text2sql::server::{ProductCorrection, ProductInferenceEngine};
+use sptorch_text2sql_service::schema::TableSchema;
+use sptorch_text2sql_service::server::{ProductCorrection, ProductInferenceEngine};
 
 #[derive(Debug, Clone)]
 pub struct Text2SqlSample {
@@ -126,7 +126,7 @@ pub fn generate_sql(
     let prompt_ids = tok.encode(&prompt_text);
 
     let mut trie = TokenTrie::new();
-    for word in &text2sql::sql_constraint::build_sql_vocabulary(schemas) {
+    for word in &sptorch_text2sql_service::sql_constraint::build_sql_vocabulary(schemas) {
         let word_ids = tok.encode(word);
         if !word_ids.is_empty() {
             trie.insert(&word_ids);

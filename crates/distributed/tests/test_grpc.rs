@@ -1,5 +1,5 @@
-use distributed::coordinator;
-use distributed::worker::Worker;
+use sptorch_distributed::coordinator;
+use sptorch_distributed::worker::Worker;
 
 #[tokio::test]
 async fn test_register_and_heartbeat() {

@@ -1,4 +1,4 @@
-use core_tensor::{Node, Op, Tensor};
+use sptorch_core_tensor::{Node, Op, Tensor};
 use std::sync::Arc;
 
 #[derive(Debug)]

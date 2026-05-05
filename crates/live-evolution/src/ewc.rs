@@ -1,4 +1,4 @@
-use core_tensor::Tensor;
+use sptorch_core_tensor::Tensor;
 
 /// Elastic Weight Consolidation (EWC) — prevents catastrophic forgetting
 /// by penalizing changes to parameters that were important for previous tasks.

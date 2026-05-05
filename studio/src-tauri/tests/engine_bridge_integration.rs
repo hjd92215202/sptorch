@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 
-use live_evolution::events::{publish, subscribe, LiveEvolutionEvent};
+use sptorch_live_evolution::events::{publish, subscribe, LiveEvolutionEvent};
 use sptorch_studio::engine_bridge::{bootstrap_default_storage, EngineBridge};
-use versioning::{EvolutionMetrics, FencePhase, VersionNode};
+use sptorch_versioning::{EvolutionMetrics, FencePhase, VersionNode};
 
 fn make_bridge() -> EngineBridge {
     EngineBridge::new(Arc::new(RwLock::new(bootstrap_default_storage())))

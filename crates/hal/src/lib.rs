@@ -4,7 +4,7 @@
 //! Any hardware (CPU, GPU, NPU) implements these traits to be plugged in.
 //! Includes `CpuBackend` as the reference implementation.
 
-use core_tensor::DType;
+use sptorch_core_tensor::DType;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

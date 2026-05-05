@@ -1,7 +1,10 @@
 [package]
-name = "hal"
+name = "sptorch-hal"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "sptorch_hal"
+
 [dependencies]
-core-tensor = { version = "0.1.0", path = "../core-tensor" }
+sptorch-core-tensor = { version = "0.1.0", path = "../core-tensor" }
