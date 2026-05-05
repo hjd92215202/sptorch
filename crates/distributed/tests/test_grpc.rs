@@ -13,7 +13,7 @@ async fn test_register_and_heartbeat() {
 
     // Connect two workers
     let mut w1 = Worker::connect("127.0.0.1:50051", "worker-0", 2).await.unwrap();
-    let mut w2 = Worker::connect("127.0.0.1:50051", "worker-1", 2).await.unwrap();
+    let w2 = Worker::connect("127.0.0.1:50051", "worker-1", 2).await.unwrap();
 
     assert_eq!(w1.rank, 0);
     assert_eq!(w2.rank, 1);

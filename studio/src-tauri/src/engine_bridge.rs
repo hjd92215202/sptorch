@@ -15,7 +15,6 @@ use versioning::{
     VersionNode, VersionedStorage, EVENT_FENCE, EVENT_HARDWARE_STATE, EVENT_METRICS, EVENT_VERSION_COMMIT,
 };
 
-#[derive(Clone)]
 pub struct EngineBridge {
     pub storage: Arc<RwLock<VersionedStorage>>,
     stream_started: AtomicBool,
